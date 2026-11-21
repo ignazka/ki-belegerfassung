@@ -58,7 +58,9 @@
             "es beim Standardkonto und ihr korrigiert es bei der Prüfung." },
     { tab: 2, ziel: () => knopfMitText("Testen"), titel: "Erst testen, dann speichern",
       text: "Der Probelauf liest Beispielbelege einmal mit der alten und einmal mit der neuen Beschreibung. So " +
-            "siehst du <i>vor</i> dem Speichern, ob deine Änderung die Erkennung verbessert." },
+            "siehst du <i>vor</i> dem Speichern, ob deine Änderung die Erkennung verbessert – auch, welches " +
+            "Konto jeder Beleg bekommt. So prüft ihr neue Konto-Ausnahmen an echten Belegen. Die Beispielbelege " +
+            "liegen in Google Drive im Ordner „Anlage KI Assistent“ – je Ausnahme ein paar passende dazulegen." },
     { tab: 3,
       ziel: () => { const m = ersterSichtbarer('[data-testid="stMetric"]');
                     return m ? m.closest('[data-testid="stHorizontalBlock"]') : null; },
