@@ -32,7 +32,7 @@ def _erlaubte_emails() -> set[str]:
     return {e.strip().lower() for e in liste if e.strip()}
 
 
-# Abmelden unten links in der Seitenleiste, rot gefüllt.
+# Abmelden unten links in der Seitenleiste, rot gefüllt; rechts daneben der Umschalter Hell/Dunkel (nur Symbol).
 # Selektoren passend zu Streamlit 1.67: die Seitenleiste wird zur Spalte, der Button (per order ans Ende
 # sortiert) rutscht mit margin-top:auto nach unten – der „Ablage:“-Hinweis aus App.py bleibt darüber.
 _ABMELDEN_CSS = (
@@ -47,7 +47,9 @@ _ABMELDEN_CSS = (
     "{display:flex; flex-direction:column; flex:1 1 auto; min-height:0;}"
     'section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"] .stVerticalBlock'
     "{display:flex; flex-direction:column; flex:1 1 auto; min-height:0;}"
-    'section[data-testid="stSidebar"] .st-key-abmelden{order:9999; margin-top:auto;}'
+    # die Zeile (horizontaler Container) steckt in einem stLayoutWrapper – der muss nach unten
+    'section[data-testid="stSidebar"] [data-testid="stLayoutWrapper"]:has(> .st-key-seitenleiste_unten)'
+    "{order:9999; margin-top:auto;}"
     # Weiß auf #C62828 = 5,6:1 (WCAG AA), Hover/Active dunkler
     'section[data-testid="stSidebar"] .st-key-abmelden button'
     "{width:100%; background:#C62828; border:1px solid #C62828; color:#fff;}"
@@ -67,6 +69,7 @@ def login_erzwingen() -> None:
     """Stoppt das Skript, solange kein freigeschalteter Benutzer angemeldet ist."""
     if _login_deaktiviert():
         st.sidebar.warning("Login deaktiviert (LOGIN_DEAKTIVIERT=1) – nur lokal verwenden!")
+        _seitenleiste_unten(abmelden=False)
         return
 
     if not _secrets_abschnitt("auth"):
@@ -81,7 +84,7 @@ def login_erzwingen() -> None:
         kopfzeile(zentriert=True, gross=True)
         google_login_button(st.login)
         login_fusszeile()
-        thema_einbetten(knopf=False)  # gewähltes Design auch hier (Logo, Fußzeile)
+        thema_einbetten()  # gewähltes Design auch hier (Logo, Fußzeile)
         st.stop()
 
     email = (st.user.get("email") or "").strip().lower()
@@ -93,8 +96,19 @@ def login_erzwingen() -> None:
     with st.sidebar:
         st.markdown(benutzer_karte(st.user.get("name") or email, email, st.user.get("picture")),
                     unsafe_allow_html=True)
+    _seitenleiste_unten(abmelden=True)
+
+
+def _seitenleiste_unten(abmelden: bool) -> None:
+    """Zeile ganz unten in der Seitenleiste: „Abmelden“ (breit) + Umschalter Hell/Dunkel (nur Symbol)."""
+    from marke import thema_knopf  # spät importiert: auth soll ohne Assets lauffähig bleiben
+
+    with st.sidebar:
         st.markdown(_ABMELDEN_CSS, unsafe_allow_html=True)
-        st.button("Abmelden", key="abmelden", on_click=st.logout)
+        with st.container(horizontal=True, vertical_alignment="center", key="seitenleiste_unten"):
+            if abmelden:
+                st.button("Abmelden", key="abmelden", on_click=st.logout, width="stretch")
+            thema_knopf()
 
 
 def _initialen(name: str) -> str:

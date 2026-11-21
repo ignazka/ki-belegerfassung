@@ -42,7 +42,7 @@ python -m pytest       # alle Tests, ohne API/Drive/Secrets (ca. 10 s)
 | `einfuehrung.py` + `assets/einfuehrung.js` | Interaktive Einführung (startet beim ersten Öffnen in einem Browser automatisch, danach über „Einführung starten“ in der Seitenleiste): Tour mit driver.js (per CDN), hebt Bereiche hervor, erklärt sie in Popups und wechselt dabei selbst die Tabs. Schritte und Texte in `assets/einfuehrung.js` |
 | `browser_skripte.py` + `assets/belegansicht.js` | Browser-Skripte einbetten; Belegansicht neben dem Formular: Seite groß, bei mehreren Seiten ‹ Seite x von n › und Mini-Vorschauen, Blättern direkt im Browser |
 | `lesequalitaet.py` | Lesequalität: vergleicht bei geprüften Belegen jede gespeicherte Lesung (Original, Kontrast, Schiedsrichter) mit dem richtigen Wert – je Feld, Feldart und Belegtyp; Anzeige im Tab „Auswertung“ |
-| `marke.py` + `assets/thema.js` | Titel „PraktikantAI“ + „powered by RE-ALIS“, Fußzeile der Login-Seite; Umschalter „Dunkles/Helles Design“ in der Seitenleiste |
+| `marke.py` + `assets/thema.js` | Titel „PraktikantAI“ + „powered by RE-ALIS“, Fußzeile der Login-Seite; Umschalter Hell/Dunkel (Mond/Sonne) unten in der Seitenleiste neben „Abmelden“ |
 | `checks.py` | Rechenprüfungen (Steuerzeilen = Gesamtbetrag, MwSt. passt zum Satz, EC ≥ Rechnung, Datum) und `nachfragen_gruende` (Regeln, wann ein Mensch draufschauen muss) |
 | `extraction.py` | `MODEL`, Bildaufbereitung (PDF → Bilder, EXIF-Drehung, max. 2000 px bzw. 1600 px ab 6 Seiten, JPEG), mehrere Dateien = ein Beleg (`dateien_zu_bildern`, max. `MAX_SEITEN` = 20), API-Call, JSON-Extraktion |
 | `auth.py` | Google-Login über `st.login`, nur E-Mails aus `[zugang].erlaubte_emails`. Fail closed: ohne `[auth]` oder mit leerer Liste ist die App gesperrt |

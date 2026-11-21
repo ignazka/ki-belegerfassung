@@ -30,9 +30,19 @@ def _logo_dunkel_data_uri() -> str:
 _TEXT_DUNKEL = "#ECEEF2"  # Schriftfarbe im dunklen Design (wie textColor in .streamlit/config.toml)
 
 
-def thema_einbetten(knopf: bool = True) -> None:
-    """Hell/Dunkel: Skript assets/thema.js (setzt <html data-thema>) und – mit knopf=True – den Umschalter in der
-    Seitenleiste. Der Knopf wird im Browser behandelt (Seite lädt mit dem anderen Design neu)."""
+_THEMA_HILFE = ("Helles oder dunkles Design. Die Seite lädt dabei neu – nicht gespeicherte Eingaben gehen "
+                "verloren.")
+
+
+def thema_knopf() -> None:
+    """Umschalter Hell/Dunkel als reines Symbol (Mond bzw. Sonne). Im aktuellen Container zeichnen (in der
+    Seitenleiste neben „Abmelden“, siehe auth.py). Den Klick behandelt assets/thema.js im Browser."""
+    st.button("", icon=":material/dark_mode:", key="thema_wechsel", help=_THEMA_HILFE)
+
+
+def thema_einbetten() -> None:
+    """Hell/Dunkel: Skript assets/thema.js (setzt <html data-thema>, bedient den Knopf thema_wechsel) und das
+    Logo für das dunkle Design."""
     from browser_skripte import skript_einbetten  # erst hier: marke wird auch von der Login-Seite genutzt
 
     try:
@@ -43,10 +53,6 @@ def thema_einbetten(knopf: bool = True) -> None:
                 ' html[data-thema="dunkel"] footer.login-fuss {background: #14151A !important;}</style>')
     except OSError:
         stil = ""
-    if knopf:
-        st.sidebar.button("Dunkles Design", icon=":material/dark_mode:", key="thema_wechsel",
-                          help="Wechselt zwischen hellem und dunklem Design. Die Seite lädt dabei neu – "
-                               "nicht gespeicherte Eingaben gehen verloren.")
     skript_einbetten("thema.js", stil=stil)
 
 

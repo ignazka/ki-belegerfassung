@@ -72,7 +72,7 @@
             "Kategorien vor. Übernommen wird nur, was ihr prüft und speichert." },
     { tab: 0, ziel: () => ersterSichtbarer(".st-key-einfuehrung_start"), titel: "Jederzeit wiederholen",
       text: "Über „Einführung starten“ in der Seitenleiste (am Handy: Menü oben links) startest du die " +
-            "Einführung jederzeit erneut. Darunter wechselst du zwischen hellem und dunklem Design. Viel Erfolg!" },
+            "Einführung jederzeit erneut. Unten neben „Abmelden“ wechselst du mit dem Mond-/Sonnen-Symbol zwischen hellem und dunklem Design. Viel Erfolg!" },
   ];
 
   // Tabs sind react-aria-Elemente: ein einfaches .click() reicht nicht, es braucht Zeiger-Ereignisse.

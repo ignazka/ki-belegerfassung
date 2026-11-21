@@ -24,7 +24,7 @@ def test_app_zeigt_umschalter_und_bettet_skript_ein():
     at = A.app()
     A.keine_fehler(at)
     knopf = at.button(key="thema_wechsel")
-    assert knopf.label == "Dunkles Design"
+    assert knopf.label == "" and knopf.proto.icon == ":material/dark_mode:"  # nur Symbol
     htmls = [h.proto for h in at.get("html")]
     thema = [h for h in htmls if "stActiveTheme-" in h.body]
     assert len(thema) == 1 and thema[0].unsafe_allow_javascript

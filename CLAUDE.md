@@ -77,7 +77,8 @@ Firmen-Google-Kalender für Bewirtung/Übernachtung (`kalender.py`, noch nicht e
 RE-ALIS-Design (`marke.py`, `.streamlit/config.toml`, `assets/`).
 
 **Helles/dunkles Design:** `[theme.light]`/`[theme.dark]` in `config.toml` (ohne Wahl folgt Streamlit dem
-Betriebssystem). Knopf `thema_wechsel` in der Seitenleiste; `assets/thema.js` fängt den Klick ab, schreibt
+Betriebssystem). Knopf `thema_wechsel` (nur Symbol Mond/Sonne) unten in der Seitenleiste neben „Abmelden“
+(`auth._seitenleiste_unten`); Tour-Popups haben eine dunkle Variante (`einfuehrung.py`); `assets/thema.js` fängt den Klick ab, schreibt
 Streamlits eigenen Merker `stActiveTheme-<pfad>-v2` ("Light"/"Dark") und lädt die Seite neu (nicht
 gespeicherte Eingaben gehen verloren). Das Skript setzt `<html data-thema="hell|dunkel">` nach der
 Hintergrundfarbe – eigene Farben im CSS deshalb als Variablen (`--akzent`, `--leise` … in `App.py`) mit

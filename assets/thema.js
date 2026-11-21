@@ -1,7 +1,7 @@
 // Helles/dunkles Design (eingebettet über marke.thema_einbetten).
 // 1. Erkennt am Hintergrund der App, welches Design gerade gilt, und setzt <html data-thema="hell|dunkel">.
 //    Daran hängen die eigenen Farben (CSS-Variablen in App.py, Logo in marke.py).
-// 2. Knopf „Dunkles/Helles Design“ (.st-key-thema_wechsel): schreibt die Wahl in Streamlits eigenen Merker im
+// 2. Knopf mit Mond/Sonne (.st-key-thema_wechsel, neben „Abmelden“): schreibt die Wahl in Streamlits eigenen Merker im
 //    localStorage (derselbe wie im Einstellungsmenü, Streamlit 1.67) und lädt die Seite neu – Streamlit liest
 //    das Design nur beim Laden. Der Klick erreicht Streamlit nicht (kein unnötiger Server-Durchlauf).
 (function () {
@@ -22,10 +22,9 @@
     if (doc.documentElement.dataset.thema !== wert) doc.documentElement.dataset.thema = wert;
     const knopf = doc.querySelector(".st-key-thema_wechsel button");
     if (!knopf) return;
-    const text = knopf.querySelector('[data-testid="stMarkdownContainer"] p');
     const symbol = knopf.querySelector('[data-testid="stIconMaterial"]');
-    const soll = dunkel ? "Helles Design" : "Dunkles Design";
-    if (text && text.textContent !== soll) text.textContent = soll;
+    const soll = dunkel ? "Helles Design" : "Dunkles Design";  // Knopf hat keinen Text -> für Screenreader
+    if (knopf.getAttribute("aria-label") !== soll) knopf.setAttribute("aria-label", soll);
     const sollSymbol = dunkel ? "light_mode" : "dark_mode";
     if (symbol && symbol.textContent !== sollSymbol) symbol.textContent = sollSymbol;
   }

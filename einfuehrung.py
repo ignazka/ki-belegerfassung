@@ -28,6 +28,21 @@ _STIL = """
 .praktikant-tour .driver-popover-footer button:hover {filter: brightness(.95);}
 .praktikant-tour .driver-popover-close-btn {color: #5B6170;}
 .praktikant-tour .tour-fortschritt {margin-top: 10px; font-size: .85rem; color: #5B6170;}
+/* dunkles Design (data-thema setzt assets/thema.js) */
+html[data-thema="dunkel"] .driver-popover.praktikant-tour {background: #22252D; color: #ECEEF2;
+  box-shadow: 0 4px 24px rgba(0,0,0,.6); border: 1px solid #3A3E48;}
+html[data-thema="dunkel"] .praktikant-tour .driver-popover-title {color: #ECEEF2;}
+html[data-thema="dunkel"] .praktikant-tour .driver-popover-progress-text,
+html[data-thema="dunkel"] .praktikant-tour .driver-popover-close-btn,
+html[data-thema="dunkel"] .praktikant-tour .tour-fortschritt {color: #A3A9B6;}
+html[data-thema="dunkel"] .praktikant-tour .driver-popover-footer button {background: transparent;
+  border-color: #F07A2A; color: #F07A2A;}
+html[data-thema="dunkel"] .praktikant-tour .driver-popover-footer .driver-popover-next-btn {background: #D65900;
+  border-color: #D65900; color: #fff;}
+html[data-thema="dunkel"] .praktikant-tour .driver-popover-arrow-side-left {border-left-color: #22252D;}
+html[data-thema="dunkel"] .praktikant-tour .driver-popover-arrow-side-right {border-right-color: #22252D;}
+html[data-thema="dunkel"] .praktikant-tour .driver-popover-arrow-side-top {border-top-color: #22252D;}
+html[data-thema="dunkel"] .praktikant-tour .driver-popover-arrow-side-bottom {border-bottom-color: #22252D;}
 </style>
 """
 
