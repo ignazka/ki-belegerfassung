@@ -332,13 +332,9 @@ def _wert(v) -> str:
     return anzeige(v) or "–"
 
 
-# Status-Farben (Hintergrund, Schrift) für helles Design – Kontrast > 8:1.
+# Status-Farben (Hintergrund, Schrift) als CSS-Variablen (Werte für hell/dunkel im <style> unten) – Kontrast > 8:1.
 # Der Status steht immer zusätzlich als Wort in der Zelle (nicht nur Farbe).
-_STATUS_FARBE = {
-    "ok": ("#DCFCE7", "#14532D"),
-    "nachfrage": ("#FEE2E2", "#7F1D1D"),
-    "fehler": ("#E5E7EB", "#1F2937"),
-}
+_STATUS_FARBE = {s: (f"var(--status-{s}-hg)", f"var(--status-{s}-text)") for s in ("ok", "nachfrage", "fehler")}
 
 
 def _status_von(text) -> str | None:
@@ -830,8 +826,8 @@ def _zeige_lesequalitaet(eintraege: list[dict]) -> None:
         farben = []
         for q_zeile in quoten:
             farben.append(["" if q is None or q >= 0.995 else
-                           ("background-color: #FDE7D9; color: #7A2E00" if q < 0.9 else
-                            "background-color: #FEF3EB; color: #7A2E00") for q in q_zeile])
+                           ("background-color: var(--lq-stark); color: var(--lq-text)" if q < 0.9 else
+                            "background-color: var(--lq-leicht); color: var(--lq-text)") for q in q_zeile])
         return pd.DataFrame(farben, index=_df.index, columns=_df.columns)
 
     stil = df.style.apply(faerben, axis=None).apply(
@@ -1983,9 +1979,16 @@ st.markdown(
     "<style>"
     # eigene Farben für helles und dunkles Design (data-thema setzt assets/thema.js)
     ':root {--akzent: #C25100; --akzent-flaeche: #FEF3EB; --leise: #5B6170; --rand: #D6D9E0;'
-    ' --knopf-flaeche: #fff; --daumen-flaeche: #F3F4F6; --gesperrt: #C3C7CF;}'
+    ' --knopf-flaeche: #fff; --daumen-flaeche: #F3F4F6; --gesperrt: #C3C7CF;'
+    # Lesequalität (Auswertung): unter 90 % kräftiger, unter 100 % leicht hervorgehoben
+    ' --lq-stark: #FDE7D9; --lq-leicht: #FEF3EB; --lq-text: #7A2E00;'
+    ' --status-ok-hg: #DCFCE7; --status-ok-text: #14532D; --status-nachfrage-hg: #FEE2E2;'
+    ' --status-nachfrage-text: #7F1D1D; --status-fehler-hg: #E5E7EB; --status-fehler-text: #1F2937;}'
     'html[data-thema="dunkel"] {--akzent: #F07A2A; --akzent-flaeche: #3A2414; --leise: #A3A9B6; --rand: #3A3E48;'
-    ' --knopf-flaeche: #22252D; --daumen-flaeche: #2A2D36; --gesperrt: #4B505C;}'
+    ' --knopf-flaeche: #22252D; --daumen-flaeche: #2A2D36; --gesperrt: #4B505C;'
+    ' --lq-stark: #4A2B17; --lq-leicht: #2E2219; --lq-text: #FFC9A3;'
+    ' --status-ok-hg: #163A26; --status-ok-text: #A7F3C4; --status-nachfrage-hg: #4A1D1D;'
+    ' --status-nachfrage-text: #FFC4C4; --status-fehler-hg: #2F333C; --status-fehler-text: #E5E7EB;}'
     '[class*="st-key-belegbild_"] img {max-height: 560px; width: auto; max-width: 100%; object-fit: contain;'
     ' display: block; margin: 0 auto;}'
     '[class*="st-key-belegbild_"] {position: relative;}'
