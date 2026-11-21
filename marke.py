@@ -60,8 +60,9 @@ def thema_einbetten() -> None:
 
     try:
         logo = _logo_dunkel_data_uri()
+        # nur das große Logo tauschen – nicht stHeaderLogo: das ist bei eingeklappter Seitenleiste das Symbol
+        # (icon_image aus st.logo), und das passt in beiden Designs
         stil = ('<style>html[data-thema="dunkel"] img[data-testid="stSidebarLogo"],'
-                ' html[data-thema="dunkel"] img[data-testid="stHeaderLogo"],'
                 f' html[data-thema="dunkel"] img.realis-logo {{content: url("{logo}");}}'
                 ' html[data-thema="dunkel"] footer.login-fuss {background: #14151A !important;}'
                 f'{_KNOPF_STIL}</style>')
