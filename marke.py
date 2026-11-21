@@ -34,10 +34,23 @@ _THEMA_HILFE = ("Helles oder dunkles Design. Die Seite lädt dabei neu – nicht
                 "verloren.")
 
 
+# Umschalter fest im Kopfbereich, über der Kopfleiste (z-index), aus dem Fluss genommen. Genaue Lage (links neben
+# Ladeanzeige bzw. Menü, mittig zum Menü) setzt assets/thema.js; bis dahin unsichtbar, damit nichts überlappt.
+_KNOPF_STIL = (
+    ".st-key-thema_wechsel {position: fixed; top: .55rem; right: 3.4rem; z-index: 999991; width: auto;"
+    " visibility: hidden;}"
+    ".st-key-thema_wechsel button {min-height: 2.25rem; width: 2.25rem; padding: 0;"
+    " justify-content: center; border-radius: .5rem;}"
+    ".st-key-thema_wechsel button:hover {background: rgba(128,128,128,.15);}"
+    '.st-key-thema_wechsel [data-testid="stIconMaterial"] {font-size: 1.35rem;}'
+)
+
+
 def thema_knopf() -> None:
-    """Umschalter Hell/Dunkel als reines Symbol (Mond bzw. Sonne). Im aktuellen Container zeichnen (in der
-    Seitenleiste neben „Abmelden“, siehe auth.py). Den Klick behandelt assets/thema.js im Browser."""
-    st.button("", icon=":material/dark_mode:", key="thema_wechsel", help=_THEMA_HILFE)
+    """Umschalter Hell/Dunkel als reines Symbol (Mond bzw. Sonne), per CSS fest oben rechts neben Streamlits
+    Menü (drei Punkte; Stil in _KNOPF_STIL, eingebettet über thema_einbetten). Den Klick behandelt
+    assets/thema.js im Browser."""
+    st.button("", icon=":material/dark_mode:", key="thema_wechsel", help=_THEMA_HILFE, type="tertiary")
 
 
 def thema_einbetten() -> None:
@@ -50,9 +63,10 @@ def thema_einbetten() -> None:
         stil = ('<style>html[data-thema="dunkel"] img[data-testid="stSidebarLogo"],'
                 ' html[data-thema="dunkel"] img[data-testid="stHeaderLogo"],'
                 f' html[data-thema="dunkel"] img.realis-logo {{content: url("{logo}");}}'
-                ' html[data-thema="dunkel"] footer.login-fuss {background: #14151A !important;}</style>')
+                ' html[data-thema="dunkel"] footer.login-fuss {background: #14151A !important;}'
+                f'{_KNOPF_STIL}</style>')
     except OSError:
-        stil = ""
+        stil = f"<style>{_KNOPF_STIL}</style>"
     skript_einbetten("thema.js", stil=stil)
 
 

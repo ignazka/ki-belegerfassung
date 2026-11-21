@@ -20,7 +20,7 @@ from testlauf import MAX_BELEGE as MAX_TESTBELEGE
 from testlauf import ausfuehren as testlauf_ausfuehren
 from testlauf import erwartete_kategorien, konten_vereinigen
 from testlauf import zusammenfassung as testlauf_zusammenfassung
-from marke import APP_NAME, kopfzeile, thema_einbetten
+from marke import APP_NAME, kopfzeile, thema_einbetten, thema_knopf
 from einfuehrung import belegansicht_einbetten, einfuehrung_ausfuehren, einfuehrung_knopf
 from kategorien import ASSISTENT_PROMPT, aktueller_stand, assistent_nachricht, labels, prompt_abschnitt, wissens_hash
 from kategorien import aktiv as kat_aktiv
@@ -87,6 +87,7 @@ st.sidebar.caption(
 )
 einfuehrung_knopf()
 thema_einbetten()
+thema_knopf()  # oben rechts neben dem Menü
 
 # Kategorie-Wissen aus der App -> gültige Kategorien + Prompt (gilt für alle Benutzer gleich)
 try:
