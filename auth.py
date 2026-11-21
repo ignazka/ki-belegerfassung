@@ -75,12 +75,13 @@ def login_erzwingen() -> None:
 
     if not st.user.get("is_logged_in", False):
         # spät importiert: auth soll ohne Assets lauffähig bleiben
-        from marke import google_login_button, kopfzeile, login_fusszeile
+        from marke import google_login_button, kopfzeile, login_fusszeile, thema_einbetten
 
         st.markdown('<div style="height:16vh"></div>', unsafe_allow_html=True)  # Inhalt etwa mittig
         kopfzeile(zentriert=True, gross=True)
         google_login_button(st.login)
         login_fusszeile()
+        thema_einbetten(knopf=False)  # gewähltes Design auch hier (Logo, Fußzeile)
         st.stop()
 
     email = (st.user.get("email") or "").strip().lower()

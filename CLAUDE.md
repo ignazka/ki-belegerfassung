@@ -76,6 +76,13 @@ Decimal/Cent (`beleg_schema.py`), Rechenprüfungen und Nachfrage-Regeln (`checks
 Firmen-Google-Kalender für Bewirtung/Übernachtung (`kalender.py`, noch nicht eingerichtet, s. u.),
 RE-ALIS-Design (`marke.py`, `.streamlit/config.toml`, `assets/`).
 
+**Helles/dunkles Design:** `[theme.light]`/`[theme.dark]` in `config.toml` (ohne Wahl folgt Streamlit dem
+Betriebssystem). Knopf `thema_wechsel` in der Seitenleiste; `assets/thema.js` fängt den Klick ab, schreibt
+Streamlits eigenen Merker `stActiveTheme-<pfad>-v2` ("Light"/"Dark") und lädt die Seite neu (nicht
+gespeicherte Eingaben gehen verloren). Das Skript setzt `<html data-thema="hell|dunkel">` nach der
+Hintergrundfarbe – eigene Farben im CSS deshalb als Variablen (`--akzent`, `--leise` … in `App.py`) mit
+Überschreibung unter `html[data-thema="dunkel"]`, nie fest für nur ein Design. Logo dunkel: `marke.py`.
+
 ## Datenablage (wichtig für jede Änderung)
 
 Drive-Ordner aus `[google_drive].ordner_id`, sonst lokal `data/`. **Alles nur anhängen, nie überschreiben**;

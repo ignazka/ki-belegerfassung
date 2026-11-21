@@ -19,12 +19,43 @@ def _logo_data_uri() -> str:
     return "data:image/svg+xml;base64," + base64.b64encode(svg).decode("ascii")
 
 
+@lru_cache(maxsize=1)
+def _logo_dunkel_data_uri() -> str:
+    """Logo für das dunkle Design: Schriftzug hell statt schwarz (das Orange bleibt)."""
+    svg = (ASSETS / "realis-logo.svg").read_text(encoding="utf-8").replace("#14151A", _TEXT_DUNKEL)
+    svg = svg.replace("<svg ", f'<svg fill="{_TEXT_DUNKEL}" ', 1)  # Teile ohne eigene Farbe (Bindestrich)
+    return "data:image/svg+xml;base64," + base64.b64encode(svg.encode("utf-8")).decode("ascii")
+
+
+_TEXT_DUNKEL = "#ECEEF2"  # Schriftfarbe im dunklen Design (wie textColor in .streamlit/config.toml)
+
+
+def thema_einbetten(knopf: bool = True) -> None:
+    """Hell/Dunkel: Skript assets/thema.js (setzt <html data-thema>) und – mit knopf=True – den Umschalter in der
+    Seitenleiste. Der Knopf wird im Browser behandelt (Seite lädt mit dem anderen Design neu)."""
+    from browser_skripte import skript_einbetten  # erst hier: marke wird auch von der Login-Seite genutzt
+
+    try:
+        logo = _logo_dunkel_data_uri()
+        stil = ('<style>html[data-thema="dunkel"] img[data-testid="stSidebarLogo"],'
+                ' html[data-thema="dunkel"] img[data-testid="stHeaderLogo"],'
+                f' html[data-thema="dunkel"] img.realis-logo {{content: url("{logo}");}}'
+                ' html[data-thema="dunkel"] footer.login-fuss {background: #14151A !important;}</style>')
+    except OSError:
+        stil = ""
+    if knopf:
+        st.sidebar.button("Dunkles Design", icon=":material/dark_mode:", key="thema_wechsel",
+                          help="Wechselt zwischen hellem und dunklem Design. Die Seite lädt dabei neu – "
+                               "nicht gespeicherte Eingaben gehen verloren.")
+    skript_einbetten("thema.js", stil=stil)
+
+
 def kopfzeile(zentriert: bool = False, gross: bool = False) -> None:
     """Hauptüberschrift als echte h1 (für Screenreader), darunter „powered by RE-ALIS“.
     gross=True für die Login-Seite (Titel und Logo deutlich größer)."""
     titel_groesse, logo_hoehe, text_groesse = ("clamp(2.4rem, 9vw, 4.6rem)", "2.4rem", "1.1rem") if gross else ("3.2rem", "1.6rem", ".85rem")
     try:
-        logo = (f'<img src="{_logo_data_uri()}" alt="RE-ALIS" '
+        logo = (f'<img class="realis-logo" src="{_logo_data_uri()}" alt="RE-ALIS" '
                 f'style="height:{logo_hoehe};width:auto;vertical-align:middle">')
     except OSError:  # Logo-Datei fehlt -> Text statt Bild
         logo = "<strong>RE-ALIS</strong>"
@@ -85,7 +116,7 @@ def google_login_button(on_click) -> None:
 def login_fusszeile() -> None:
     """Fußzeile ganz unten auf der Login-Seite mit Link zur Datenschutzerklärung."""
     st.markdown(
-        '<footer style="position:fixed;left:0;right:0;bottom:0;padding:.9rem 1rem;text-align:center;'
+        '<footer class="login-fuss" style="position:fixed;left:0;right:0;bottom:0;padding:.9rem 1rem;text-align:center;'
         'font-size:.85rem;background:#FFFFFF;border-top:1px solid rgba(128,128,128,.25)">'
         '<a href="?seite=datenschutz" target="_self">Datenschutzerklärung</a>'
         "</footer>",

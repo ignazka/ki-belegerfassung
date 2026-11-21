@@ -20,7 +20,7 @@ from testlauf import MAX_BELEGE as MAX_TESTBELEGE
 from testlauf import ausfuehren as testlauf_ausfuehren
 from testlauf import erwartete_kategorien, konten_vereinigen
 from testlauf import zusammenfassung as testlauf_zusammenfassung
-from marke import APP_NAME, kopfzeile
+from marke import APP_NAME, kopfzeile, thema_einbetten
 from einfuehrung import belegansicht_einbetten, einfuehrung_ausfuehren, einfuehrung_knopf
 from kategorien import ASSISTENT_PROMPT, aktueller_stand, assistent_nachricht, labels, prompt_abschnitt, wissens_hash
 from kategorien import aktiv as kat_aktiv
@@ -86,6 +86,7 @@ st.sidebar.caption(
          "Funktioniert nur für Personen, die auf den Ordner Zugriff haben." if _link else None,
 )
 einfuehrung_knopf()
+thema_einbetten()
 
 # Kategorie-Wissen aus der App -> gültige Kategorien + Prompt (gilt für alle Benutzer gleich)
 try:
@@ -1979,6 +1980,11 @@ _TAB_FARBEN = [("#C25100", "#C25100"), ("#036BD3", "#036BD3"), ("#373A43", "#373
 _TAB = '.stTabs [role="tab"]'
 st.markdown(
     "<style>"
+    # eigene Farben für helles und dunkles Design (data-thema setzt assets/thema.js)
+    ':root {--akzent: #C25100; --akzent-flaeche: #FEF3EB; --leise: #5B6170; --rand: #D6D9E0;'
+    ' --knopf-flaeche: #fff; --daumen-flaeche: #F3F4F6; --gesperrt: #C3C7CF;}'
+    'html[data-thema="dunkel"] {--akzent: #F07A2A; --akzent-flaeche: #3A2414; --leise: #A3A9B6; --rand: #3A3E48;'
+    ' --knopf-flaeche: #22252D; --daumen-flaeche: #2A2D36; --gesperrt: #4B505C;}'
     '[class*="st-key-belegbild_"] img {max-height: 560px; width: auto; max-width: 100%; object-fit: contain;'
     ' display: block; margin: 0 auto;}'
     '[class*="st-key-belegbild_"] {position: relative;}'
@@ -1992,21 +1998,22 @@ st.markdown(
     # mehrere Seiten: anfangs nur Seite 1 sichtbar, das Skript blendet beim Blättern die gewählte ein
     '[class*="st-key-belegbild_"] > [data-testid="stElementContainer"]:not(:first-child) {display: none;}'
     # Blätterleiste ‹ Seite x von n ›
-    '.belegnav {display: flex; align-items: center; justify-content: center; gap: .9rem; color: #5B6170;'
+    '.belegnav {display: flex; align-items: center; justify-content: center; gap: .9rem; color: var(--leise);'
     ' font-size: .92rem; user-select: none;}'
-    '.belegnav button {width: 34px; height: 34px; border-radius: 50%; border: 1px solid #D6D9E0; background: #fff;'
-    ' color: #C25100; font-size: 1.3rem; line-height: 1; cursor: pointer; display: inline-flex;'
+    '.belegnav button {width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--rand);'
+    ' background: var(--knopf-flaeche);'
+    ' color: var(--akzent); font-size: 1.3rem; line-height: 1; cursor: pointer; display: inline-flex;'
     ' align-items: center; justify-content: center; padding: 0 0 2px;}'
-    '.belegnav button:hover:not(:disabled) {border-color: #C25100; background: #FEF3EB;}'
-    '.belegnav button:disabled {color: #C3C7CF; cursor: default;}'
-    '.belegnav button:focus-visible {outline: 3px solid #C25100; outline-offset: 2px;}'
+    '.belegnav button:hover:not(:disabled) {border-color: var(--akzent); background: var(--akzent-flaeche);}'
+    '.belegnav button:disabled {color: var(--gesperrt); cursor: default;}'
+    '.belegnav button:focus-visible {outline: 3px solid var(--akzent); outline-offset: 2px;}'
     # Mini-Vorschauen aller Seiten, aktuelle orange umrandet
     '[class*="st-key-belegdaumen_"] {flex-wrap: nowrap !important; overflow-x: auto; padding: 2px 0 4px;}'
     '[class*="st-key-belegdaumen_"] img {height: 52px !important; width: auto !important; max-width: 64px;'
-    ' object-fit: contain; background: #F3F4F6; border: 2px solid transparent; border-radius: 4px;'
+    ' object-fit: contain; background: var(--daumen-flaeche); border: 2px solid transparent; border-radius: 4px;'
     ' cursor: pointer; opacity: .65; transition: opacity .12s, border-color .12s;}'
     '[class*="st-key-belegdaumen_"] img:hover {opacity: 1;}'
-    '[class*="st-key-belegdaumen_"] img[data-aktiv="1"] {border-color: #C25100; opacity: 1;}'
+    '[class*="st-key-belegdaumen_"] img[data-aktiv="1"] {border-color: var(--akzent); opacity: 1;}'
     # Analyse-Knopf: während der Analyse nur ein drehender Spinner (Text bleibt für Screenreader erhalten)
     "@keyframes beleg-dreh {to {transform: rotate(360deg);}}"
     '[class*="st-key-laufknopf_"] button:disabled [data-testid="stIconMaterial"]'
@@ -2018,7 +2025,7 @@ st.markdown(
     '[class*="st-key-lernfall_"] {padding: .55rem .9rem !important; gap: .25rem;}'
     '[class*="st-key-lernfall_"] p {font-size: .92rem;}'
     '[class*="st-key-lernfall_"] button:not(:disabled), [class*="st-key-lernfall_"] button:not(:disabled) p'
-    ' {color: #C25100; font-weight: 600;}'
+    ' {color: var(--akzent); font-weight: 600;}'
     # Ladebalken oben über die ganze Breite, solange Streamlit rechnet (Filter, Blättern, Speichern, …)
     "@keyframes lade-balken {from {background-position: -40% 0;} to {background-position: 140% 0;}}"
     'body:has([data-testid="stStatusWidgetRunningIcon"], [data-testid="stStatusWidgetRunningManIcon"])::before'
@@ -2030,9 +2037,9 @@ st.markdown(
     # Blätterleiste im Tab „Belege“: als Links in der Akzentfarbe erkennbar, dicht unter der Auswahl
     '.st-key-beleg_blaettern {margin-top: -.6rem; justify-content: center !important; gap: 1.5rem !important;}'
     '.st-key-beleg_blaettern button:not(:disabled), .st-key-beleg_blaettern button:not(:disabled) p'
-    ' {color: #C25100; font-weight: 600;}'
+    ' {color: var(--akzent); font-weight: 600;}'
     '.st-key-beleg_blaettern button:not(:disabled):hover p {text-decoration: underline;}'
-    '.st-key-beleg_blaettern [data-testid="stMarkdownContainer"] p {color: #5B6170; font-size: .9rem;}'
+    '.st-key-beleg_blaettern [data-testid="stMarkdownContainer"] p {color: var(--leise); font-size: .9rem;}'
     # solange der Knopf gesperrt ist (Analyse läuft), sind die anderen Tabs gesperrt
     '.stApp:has([class*="st-key-laufknopf_"] button:disabled) .stTabs [role="tab"]:not([data-selected])'
     ' {pointer-events: none; opacity: .4;}'
@@ -2061,6 +2068,9 @@ st.markdown(
         f"{_TAB}:nth-child({i})[data-selected] p {{color: #fff;}}"
         for i, (fuellung, rand) in enumerate(_TAB_FARBEN, start=1)
     )
+    # dunkles Design: Schiefer-Tab (Kategorien) heller, sonst verschwindet er im dunklen Hintergrund
+    + f'html[data-thema="dunkel"] {_TAB}:nth-child(3) {{border-color: #8A90A0;}}'
+    f'html[data-thema="dunkel"] {_TAB}:nth-child(3)[data-selected] {{background: #5B6170;}}'
     + "</style>",
     unsafe_allow_html=True,
 )

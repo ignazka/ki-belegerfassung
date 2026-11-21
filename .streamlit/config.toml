@@ -1,14 +1,24 @@
-# Oberfläche im RE-ALIS-Design (Farben von re-alis.com), helles Design.
+# Oberfläche im RE-ALIS-Design (Farben von re-alis.com), helles und dunkles Design.
 # Schrift: Source Sans 3 – wie auf der Firmenseite und zugleich Streamlits Standardschrift.
 # Primärfarbe: Marken-Orange (#FF6A00) leicht abgedunkelt, damit weiße Schrift auf Buttons
 # lesbar bleibt (4,7:1, WCAG AA). Text auf Hintergrund > 16:1.
+# Zwei Designs: hell und dunkel. Umschalten über den Knopf in der Seitenleiste (assets/thema.js);
+# ohne Wahl folgt Streamlit der Einstellung des Betriebssystems.
 [theme]
-base = "light"
+font = "sans-serif"
+
+[theme.light]
 primaryColor = "#C25100"
 backgroundColor = "#FFFFFF"
 secondaryBackgroundColor = "#EEF2F6"
 textColor = "#14151A"
-font = "sans-serif"
+
+# Dunkel: Hintergrund im RE-ALIS-Schwarz. Orange etwas heller, damit es auf dunklem Grund >= 4,5:1 erreicht.
+[theme.dark]
+primaryColor = "#D65900"
+backgroundColor = "#14151A"
+secondaryBackgroundColor = "#22252D"
+textColor = "#ECEEF2"
 
 [client]
 toolbarMode = "viewer"

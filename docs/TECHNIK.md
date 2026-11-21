@@ -42,7 +42,7 @@ anhand gesammelter Korrekturen verbessert (Abschnitt 5).
 | `kalender.py` | Abgleich Bewirtung/Übernachtung mit dem Firmenkalender |
 | `storage.py` | Ablage (Drive bzw. lokal), Kalenderzugriff |
 | `auth.py`, `marke.py`, `datenschutz.py` | Login, Branding, Datenschutzseite |
-| `einfuehrung.py`, `browser_skripte.py`, `assets/*.js` | Browser-Skripte: Einführungs-Tour, Blättern in der Belegansicht |
+| `einfuehrung.py`, `browser_skripte.py`, `assets/*.js` | Browser-Skripte: Einführungs-Tour, Blättern in der Belegansicht, hell/dunkel (`thema.js`) |
 | `tests/` | pytest – Logik, Pipeline, Ablage, Oberfläche mit vorgetäuschter Ablage/KI (`tests/attrappe.py`) |
 
 ---
