@@ -10,13 +10,17 @@ Später sollen daraus direkt Buchungsentwürfe in **sevDesk** entstehen.
 ## Was die App macht
 
 1. **Hochladen:** Foto oder PDF, auch mehrseitig oder als Stapel. <img width="958" height="455" alt="Screenshot 2026-11-22 124820" src="https://github.com/user-attachments/assets/552875d0-9f3a-490e-b485-177414f63621" />
+2. **Kategorien erstellen:** Individuelle Beleg-Klassifizierung festlegen <img width="959" height="454" alt="Screenshot 2026-11-22 125509" src="https://github.com/user-attachments/assets/89003087-26ec-4f5e-8caf-73e37e4c6407" /><img width="959" height="452" alt="Screenshot 2026-11-22 125520" src="https://github.com/user-attachments/assets/ec4db8a4-49b3-4f2c-978b-bea97a3df455" />
+<img width="958" height="454" alt="Screenshot 2026-11-22 125531" src="https://github.com/user-attachments/assets/7c0a83aa-f887-400f-b868-cdcbe86b65d1" />
+
+
 
 2. **Einordnen und ablesen:** Belegart, Datum, Beträge, Steuersätze, Lieferant und SKR04-Konto.
 3. **Nachrechnen im Code:** MwSt., Netto und Trinkgeld rechnet der Code, nicht die KI. Passt etwas nicht
    oder ist die KI unsicher, entsteht eine **Nachfrage** an einen Menschen.
 4. **Prüfen:** Ein Mensch bestätigt oder korrigiert. Jede Prüfung wird gespeichert.
 5. **Lernen:** Aus den Korrekturen schlägt die App bessere Regeln für die Belegarten vor. Ein Mensch testet
-   sie und übernimmt sie. Die Trefferquote zeigt, ob es besser wird.<img width="958" height="380" alt="Screenshot 2026-11-22 124911" src="https://github.com/user-attachments/assets/cbc4959d-292f-4fa0-93d1-6e2c0421b358" /><img width="957" height="376" alt="Screenshot 2026-11-22 124925" src="https://github.com/user-attachments/assets/999707ab-a2bb-45b3-8829-1744b4bc7462" /><img width="950" height="128" alt="Screenshot 2026-11-22 124918" src="https://github.com/user-attachments/assets/6d43534d-6a3a-4751-b7d4-fa5158300e33" />
+   sie und übernimmt sie. Die Trefferquote zeigt, ob es besser wird.<img width="957" height="376" alt="Screenshot 2026-11-22 124925" src="https://github.com/user-attachments/assets/999707ab-a2bb-45b3-8829-1744b4bc7462" /><img width="958" height="380" alt="Screenshot 2026-11-22 124911" src="https://github.com/user-attachments/assets/cbc4959d-292f-4fa0-93d1-6e2c0421b358" /><img width="950" height="128" alt="Screenshot 2026-11-22 124918" src="https://github.com/user-attachments/assets/6d43534d-6a3a-4751-b7d4-fa5158300e33" />
 
 
 
