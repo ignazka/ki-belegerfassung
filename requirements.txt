@@ -5,6 +5,7 @@ pymupdf==2.1
 pydantic==2.14.3
 python-dotenv==1.2.4
 Authlib==1.9.8
+cryptography==50.0.2  # Kalender-Zugang verschlüsselt ablegen (kommt auch mit Authlib)
 google-api-python-client==2.202.0
 google-auth==2.62.2
 google-auth-oauthlib==1.5.0

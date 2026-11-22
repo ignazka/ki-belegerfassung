@@ -16,6 +16,7 @@ from beleg_schema import FEEDBACK_FELDER, KATEGORIEN, STANDARD_KATEGORIEN, Beleg
 from datenschutz import ist_datenschutzseite, zeige_datenschutz
 from extraction import MAX_SEITEN, MODEL, MODEL_GROSS, AnalyseFehler, dateien_zu_bildern, text_anfrage_json
 from pipeline import beleg_lesen
+from kalender_verbindung import VerbindungsFehler, ist_kalender_state
 from testlauf import MAX_BELEGE as MAX_TESTBELEGE
 from testlauf import ausfuehren as testlauf_ausfuehren
 from testlauf import erwartete_kategorien, konten_vereinigen
@@ -55,6 +56,14 @@ from storage import (
     kategorie_dokument_ablegen,
     kategorie_speichern,
     kalender_abgleichen,
+    kalender_anmelde_url,
+    kalender_auswahl_speichern,
+    kalender_liste,
+    kalender_ruecksprung,
+    kalender_status,
+    kalender_trennen,
+    kalender_verbinden_moeglich,
+    kalender_verbindung,
     kategorien_laden,
     feedback_speichern,
     nachfragen_laden,
@@ -85,6 +94,117 @@ st.sidebar.caption(
     help="Öffnet den Drive-Ordner mit Belegen, Nachfragen und Feedback in einem neuen Tab. "
          "Funktioniert nur für Personen, die auf den Ordner Zugriff haben." if _link else None,
 )
+
+
+# ---------------------------------------------------------------------------
+# Kalender verbinden (Seitenleiste, unter dem Drive-Link) – siehe kalender_verbindung.py
+# ---------------------------------------------------------------------------
+
+def _kalender_ruecksprung_verarbeiten() -> None:
+    """Google leitet nach „Kalender verbinden“ mit ?code=…&state=… auf die App zurück."""
+    state = st.query_params.get("state")
+    if not ist_kalender_state(state):
+        return
+    code, abgebrochen = st.query_params.get("code"), st.query_params.get("error")
+    st.query_params.clear()  # Code nur einmal verwenden, Adresse wieder sauber
+    if abgebrochen or not code:
+        st.session_state["kalender_meldung"] = ("warnung", "Kalender verbinden wurde abgebrochen.")
+        return
+    try:
+        with st.sidebar, st.spinner("Kalender wird verbunden …"):
+            verbindung = kalender_ruecksprung(code, state, aktueller_benutzer(), aktueller_benutzer())
+    except (VerbindungsFehler, AblageFehler) as e:
+        st.session_state["kalender_meldung"] = ("fehler", str(e))
+        return
+    except Exception as e:
+        st.session_state["kalender_meldung"] = ("fehler", f"Kalender verbinden fehlgeschlagen: {e}")
+        return
+    konto = (verbindung or {}).get("konto") or "Google-Konto"
+    st.session_state["kalender_meldung"] = ("ok", f"Kalender verbunden über {konto}.")
+    if verbindung and not verbindung["kalender"]:
+        st.session_state["kalender_wahl_offen"] = True  # gleich auswählen lassen, welche Kalender gelten
+
+
+def _kalender_wahl_schliessen() -> None:
+    st.session_state.pop("kalender_wahl_offen", None)
+    st.session_state.pop("kalender_liste", None)
+
+
+@st.dialog("Welche Kalender sollen abgeglichen werden?", on_dismiss=_kalender_wahl_schliessen)
+def _kalender_wahl_dialog() -> None:
+    ss = st.session_state
+    if "kalender_liste" not in ss:
+        try:
+            ss["kalender_liste"] = kalender_liste()
+        except Exception as e:
+            st.error(f"Kalender konnten nicht geladen werden: {e}")
+            return
+    liste = ss["kalender_liste"]
+    if not liste:
+        st.warning("Dieses Google-Konto sieht keine Kalender.")
+        return
+    namen = {k["id"]: k["name"] + (" (eigener Kalender)" if k["haupt"] else "") for k in liste}
+    gewaehlt = {k["id"] for k in (kalender_verbindung() or {}).get("kalender", [])}
+    st.caption("Zu jeder Bewirtung und Übernachtung sucht die App in **allen** gewählten Kalendern nach einem "
+               "passenden Termin. Gibt es keinen, fragt sie nach.")
+    wahl = st.multiselect("Kalender", list(namen), default=[i for i in namen if i in gewaehlt],
+                          format_func=namen.get, key="kalender_wahl", placeholder="Kalender auswählen")
+    if st.button("Speichern", type="primary", disabled=not wahl, key="kalender_wahl_speichern"):
+        kalender_auswahl_speichern([{"id": i, "name": next(k["name"] for k in liste if k["id"] == i)}
+                                    for i in wahl], aktueller_benutzer())
+        _kalender_wahl_schliessen()
+        ss["kalender_meldung"] = ("ok", f"{len(wahl)} Kalender werden jetzt abgeglichen.")
+        st.rerun()
+
+
+def _kalender_seitenleiste() -> None:
+    ss = st.session_state
+    verbindung = kalender_verbindung()
+    moeglich = kalender_verbinden_moeglich()
+    url = kalender_anmelde_url(aktueller_benutzer()) if moeglich else None
+    hilfe = ("Zu Bewirtungen und Übernachtungen sucht die App einen passenden Termin im Google-Kalender. "
+             "„Kalender verbinden“ öffnet Google in einem neuen Tab: mit dem Konto anmelden, das die Termine "
+             "sieht, und „Kalender ansehen“ erlauben. Die App liest nur, sie ändert nichts.")
+    if verbindung:
+        kurz = ("neu verbinden" if not verbindung["token_ok"] else
+                "verbunden" if verbindung["kalender"] else "bitte Kalender wählen")
+        with st.sidebar.popover(f"Kalender: {kurz}", icon=":material/event:",
+                                key="kalender_verbindung", width="stretch"):
+            st.caption(f"Verbunden über **{verbindung['konto'] or 'Google-Konto'}**"
+                       + (f", eingerichtet am {zeitpunkt_de(verbindung['zeitpunkt'])}" if verbindung.get("zeitpunkt")
+                          else "") + ".")
+            if verbindung["kalender"]:
+                st.markdown("Abgeglichen werden:\n" + "\n".join(f"- {k['name']}" for k in verbindung["kalender"]))
+            if verbindung["token_ok"] and st.button("Kalender auswählen", icon=":material/checklist:",
+                                                    key="kalender_auswahl_oeffnen", width="stretch"):
+                ss.pop("kalender_liste", None)
+                ss["kalender_wahl_offen"] = True
+            if url:
+                st.link_button("Neu verbinden" if verbindung["token_ok"] else "Neu verbinden (nötig)", url,
+                               icon=":material/sync:", key="kalender_neu_verbinden", width="stretch",
+                               help="Öffnet Google in einem neuen Tab, z. B. für ein anderes Konto.")
+            if st.button("Trennen", icon=":material/link_off:", key="kalender_trennen", width="stretch"):
+                kalender_trennen(aktueller_benutzer())
+                ss["kalender_meldung"] = ("ok", "Kalender getrennt.")
+                st.rerun()
+    else:
+        st.sidebar.caption(f"Kalender: {kalender_status()}", help=hilfe)
+        if url:
+            st.sidebar.link_button("Kalender verbinden", url, icon=":material/event:", key="kalender_verbinden",
+                                   help=hilfe)
+    meldung = ss.pop("kalender_meldung", None)
+    if meldung:
+        art, text = meldung
+        {"ok": st.sidebar.success, "warnung": st.sidebar.warning}.get(art, st.sidebar.error)(text)
+    if ss.get("kalender_wahl_offen"):  # bleibt offen, bis gespeichert oder geschlossen (on_dismiss)
+        _kalender_wahl_dialog()
+
+
+_kalender_ruecksprung_verarbeiten()
+try:
+    _kalender_seitenleiste()
+except Exception as e:  # Kalender darf die App nie blockieren
+    st.sidebar.caption(f"Kalender: nicht verfügbar ({e})")
 einfuehrung_knopf()
 thema_einbetten()
 thema_knopf()  # oben rechts neben dem Menü

@@ -74,7 +74,7 @@ lange Vorgänge genauso bauen. Zusätzlich zeigt ein orangefarbener Ladebalken o
 
 Weitere Bausteine: doppeltes Lesen + Schiedsrichter-Modell (`pipeline.py`), Rechnen nur im Code mit
 Decimal/Cent (`beleg_schema.py`), Rechenprüfungen und Nachfrage-Regeln (`checks.py`), Abgleich mit dem
-Firmen-Google-Kalender für Bewirtung/Übernachtung (`kalender.py`, noch nicht eingerichtet, s. u.),
+Google-Kalender für Bewirtung/Übernachtung (`kalender.py`, s. u. „Kalender verbinden“),
 RE-ALIS-Design (`marke.py`, `.streamlit/config.toml`, `assets/`).
 
 **Helles/dunkles Design:** `[theme.light]`/`[theme.dark]` in `config.toml` (ohne Wahl folgt Streamlit dem
@@ -85,6 +85,14 @@ Streamlits eigenen Merker `stActiveTheme-<pfad>-v2` ("Light"/"Dark") und lädt d
 gespeicherte Eingaben gehen verloren). Das Skript setzt `<html data-thema="hell|dunkel">` nach der
 Hintergrundfarbe – eigene Farben im CSS deshalb als Variablen (`--akzent`, `--leise` … in `App.py`) mit
 Überschreibung unter `html[data-thema="dunkel"]`, nie fest für nur ein Design. Logo dunkel: `marke.py`.
+
+**Kalender verbinden** (Seitenleiste unter dem Drive-Link, `kalender_verbindung.py` + `App._kalender_seitenleiste`):
+Knopf öffnet Google in neuem Tab (nur `calendar.readonly` + E-Mail, `access_type=offline`, `prompt=consent`),
+Rücksprung auf die App-Startseite (`[auth].redirect_uri` ohne `oauth2callback`, bei Google als Weiterleitungs-URI
+eingetragen) mit `?code&state`; `state` ist per HMAC aus `[auth].cookie_secret` signiert (15 min, gleicher
+App-Benutzer). Danach Dialog „Welche Kalender?“ (mehrere möglich). Zugang Fernet-verschlüsselt (Schlüssel aus
+`cookie_secret` – ändert sich das, muss neu verbunden werden) in `kalender_zugang/`. Hat Vorrang vor dem alten Weg
+über `[kalender]` in den Secrets. UI-Tests: `A.app(kalender={…}, abfrage={…})`.
 
 ## Datenablage (wichtig für jede Änderung)
 
@@ -98,6 +106,7 @@ pro Datei-Hash gilt der **jüngste** Eintrag.
 | `nachfragen/` | ältere Nachfragen (vor `analysen/`), nur noch gelesen |
 | `feedback/` | jede menschliche Prüfung: `kategorie {modell, korrekt, richtig}`, `felder{key: {modell, korrekt, richtig}}`, `kommentar`, `quelle` (`nachfrage`/`pruefung`/fehlt = altes Feedback), ggf. `korrektur_von`, `kommentar_vorher` |
 | `entscheidungen/` | Entscheidungen der ersten Nachfragen-Version, nur noch gelesen |
+| `kalender_zugang/` | Kalender-Verbindung: `verbunden`, `konto`, `token_verschluesselt`, `kalender [{id, name}]`; jüngster Eintrag gilt, `verbunden: false` = getrennt |
 | `kategorien/` | Kategorie-Versionen; lesbare Kopien als Google-Doc in `Anlage KI Assistent/<Kategorie>/` |
 
 `App._alle_belege()` führt das pro Hash zusammen. Formate nur **erweitern**, nie umbenennen – alte
@@ -153,9 +162,9 @@ Einträge müssen lesbar bleiben.
 ## Offene Punkte und Pläne
 
 Kurzfristig:
-- **Kalenderabgleich einrichten** (Aufgabe des Nutzers): `[kalender].kalender_id` in den Secrets,
-  Calendar API aktivieren, `python drive_token_holen.py --kalender` mit einem Konto, das den
-  Firmenkalender sehen darf (z. B. Annika).
+- **Kalender verbinden** (Calendar API und Weiterleitungs-URI sind eingerichtet): Annika klickt in der
+  Seitenleiste „Kalender verbinden“ und wählt die Kalender. Danach an echten Belegen prüfen, ob die Regeln in
+  `kalender.py` zu oft/zu selten nachfragen.
 - **Texterkennung (OCR), Stufe 2:** Wenn „Lesequalität“ mit genug Belegen (einige Dutzend) eine klare
   Schwachstelle zeigt (bisher: Textfelder/Adresse in den ersten Lesungen), Vergleichsskript außerhalb der App:
   geprüfte Belege + Beispielordner mit 1–2 lokalen OCR-Kandidaten (z. B. PaddleOCR, Surya, docTR) lesen und

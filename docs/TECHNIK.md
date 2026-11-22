@@ -40,6 +40,7 @@ anhand gesammelter Korrekturen verbessert (Abschnitt 5).
 | `testlauf.py` | Probelauf einer Kategorie-Änderung (vorher/nachher) mit Beispielbelegen |
 | `lesequalitaet.py` | Welche Lesung lag richtig? (Auswertung) |
 | `kalender.py` | Abgleich Bewirtung/Übernachtung mit dem Firmenkalender |
+| `kalender_verbindung.py` | „Kalender verbinden“: Google-Anmeldung nur für Kalender lesen, Rücksprung prüfen, Zugang verschlüsseln |
 | `storage.py` | Ablage (Drive bzw. lokal), Kalenderzugriff |
 | `auth.py`, `marke.py`, `datenschutz.py` | Login, Branding, Datenschutzseite |
 | `einfuehrung.py`, `browser_skripte.py`, `assets/*.js` | Browser-Skripte: Einführungs-Tour, Blättern in der Belegansicht, hell/dunkel (`thema.js`) |
@@ -80,8 +81,9 @@ Upload ─► Bilder ─► 2 Lesungen parallel ─► Vergleich + Prüfungen �
      ohne Schiedsrichter, Nachfrage bleibt
    - sonst → **Schiedsrichter**: 235B-Modell liest in hoher Auflösung (2800 px); sein Ergebnis gilt, danach
      alle Prüfungen erneut. Abweichende Felder, die er nicht bestätigen kann → Grund „Unsicher gelesen“.
-7. **Kalenderabgleich** (`kalender.py`, optional): Bewirtung/Übernachtung ↔ Termin im Firmenkalender; kein
-   passender Termin → zusätzlicher Nachfragegrund.
+7. **Kalenderabgleich** (`kalender.py`, optional): Bewirtung/Übernachtung ↔ Termin in allen gewählten Kalendern
+   (Seitenleiste „Kalender verbinden“, sonst `[kalender]` in den Secrets); kein passender Termin → zusätzlicher
+   Nachfragegrund.
 8. **Ablegen** (`App._beleg_ablegen`): Originaldatei nach `belege/`, ein Eintrag nach `analysen/` – **immer**,
    auch ohne Nachfrage. Ergebnis landet in `st.session_state` und wird angezeigt; geprüft wird im Tab „Belege“.
 
@@ -195,6 +197,7 @@ schreibt mit dem Refresh-Token des Ordner-Besitzers (`drive_token_holen.py`). Oh
 ├── analysen/          eine JSON-Datei je Analyse
 ├── feedback/          eine JSON-Datei je Prüfung
 ├── kategorien/        eine JSON-Datei je Kategorie-Version
+├── kalender_zugang/   Kalender-Verbindung (Zugang verschlüsselt, gewählte Kalender), jüngster Eintrag gilt
 ├── nachfragen/        ältere Nachfragen (vor 2026-11-18), nur noch gelesen
 ├── entscheidungen/    Entscheidungen der ersten Nachfragen-Version, nur noch gelesen
 └── Anlage KI Assistent/<Kategorie>/   Beispielbelege + lesbares Google-Doc je Kategorie
@@ -267,6 +270,19 @@ der früheren Version. `korrektur_von`/`kommentar_vorher` nur, wenn eine früher
   "status": "aktiv", "version": 3, "bearbeiter": "…"
 }
 ```
+
+**`kalender_zugang/`** – Verbindung aus der Seitenleiste (`storage.kalender_ruecksprung`,
+`kalender_auswahl_speichern`, `kalender_trennen`):
+
+```json
+{
+  "zeitpunkt": "2026-11-22T10:00:00", "verbunden": true, "konto": "…@…", "bearbeiter": "…",
+  "token_verschluesselt": "gAAAA…", "kalender": [{"id": "…@group.calendar.google.com", "name": "Firma"}]
+}
+```
+
+Getrennt = neuer Eintrag `{"verbunden": false}`. Der Zugang ist mit einem Schlüssel aus `[auth].cookie_secret`
+verschlüsselt; eine Kopie der Datei allein reicht nicht für den Kalenderzugriff.
 
 ### 6.4 Was nicht gespeichert wird
 

@@ -71,6 +71,11 @@
     { tab: 3, ziel: () => knopfMitText("Verbesserungsvorschläge"), titel: "Aus Korrekturen lernen",
       text: "Sind genug Korrekturen gesammelt, sucht die KI hier nach Mustern und schlägt Ergänzungen für die " +
             "Kategorien vor. Übernommen wird nur, was ihr prüft und speichert." },
+    { tab: 0, ziel: () => ersterSichtbarer(".st-key-kalender_verbinden, .st-key-kalender_verbindung"),
+      titel: "Kalender verbinden",
+      text: "Zu jeder Bewirtung und Übernachtung sucht die App einen passenden Termin im Google-Kalender und " +
+            "schlägt die Teilnehmer vor. Einmal hier verbinden: mit dem Konto anmelden, das die Termine sieht, " +
+            "und auswählen, welche Kalender gelten. Die App liest nur, sie ändert nichts." },
     { tab: 0, ziel: () => ersterSichtbarer(".st-key-einfuehrung_start"), titel: "Jederzeit wiederholen",
       text: "Über „Einführung starten“ in der Seitenleiste (am Handy: Menü oben links) startest du die " +
             "Einführung jederzeit erneut. Oben rechts neben dem Menü (drei Punkte) wechselst du mit dem Mond-/Sonnen-Symbol zwischen hellem und dunklem Design. Viel Erfolg!" },

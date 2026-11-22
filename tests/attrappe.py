@@ -20,6 +20,10 @@ SPEICHER: dict[str, list[dict]] = {art: [] for art in ARTEN}
 KI: dict = {}  # analyse (dict), gruende (list) für beleg_lesen; text_antwort (dict) für text_anfrage_json
 ANFRAGEN: list[str] = []  # Nachrichten an text_anfrage_json
 LADEN: dict[str, int] = {}  # wie oft jede Ablage gelesen wurde (für Tests zur Effizienz)
+# Kalender-Verbindung: "verbindung" (dict wie storage.kalender_verbindung), "liste" (Kalender des Kontos),
+# "ruecksprung" (Ergebnis oder Exception für storage.kalender_ruecksprung); AUFRUFE protokolliert Änderungen
+KALENDER: dict = {}
+KALENDER_AUFRUFE: list[tuple] = []
 _uhr = itertools.count()
 
 FELD_KEYS = ["belegnummer", "restaurant_name", "adresse", "datum", "uhrzeit", "netto", "mwst", "brutto",
@@ -103,6 +107,7 @@ def einsetzen() -> None:
     storage.beispielbeleg_laden = _gesperrt
     storage.beispielbeleg_hochladen = _gesperrt
     storage.kalender_abgleichen = lambda a: Abgleich(status="nicht_eingerichtet")
+    _kalender_einsetzen(storage)
 
     def beleg_lesen(*_a, **_k):
         return pipeline.LeseErgebnis(BelegAnalyse.model_validate(KI.get("analyse") or analyse()), "{}",
@@ -138,6 +143,42 @@ def einsetzen() -> None:
 _ORIG_UPLOADER = None
 
 
+def _kalender_einsetzen(storage) -> None:
+    def verbindung():
+        return KALENDER.get("verbindung")
+
+    def status():
+        v = verbindung()
+        if not v:
+            return "nicht verbunden"
+        return f"verbunden ({len(v['kalender'])} Kalender)" if v["kalender"] else "verbunden, noch kein Kalender gewählt"
+
+    def ruecksprung(code, state, benutzer, bearbeiter):
+        KALENDER_AUFRUFE.append(("ruecksprung", code, state))
+        ergebnis = KALENDER.get("ruecksprung")
+        if isinstance(ergebnis, Exception):
+            raise ergebnis
+        KALENDER["verbindung"] = ergebnis
+        return ergebnis
+
+    def auswahl_speichern(kalender, bearbeiter):
+        KALENDER_AUFRUFE.append(("auswahl", [k["id"] for k in kalender]))
+        KALENDER["verbindung"] = {**KALENDER["verbindung"], "kalender": kalender}
+
+    def trennen(bearbeiter):
+        KALENDER_AUFRUFE.append(("trennen",))
+        KALENDER["verbindung"] = None
+
+    storage.kalender_verbindung = verbindung
+    storage.kalender_status = status
+    storage.kalender_verbinden_moeglich = lambda: True
+    storage.kalender_anmelde_url = lambda benutzer: "https://accounts.google.com/o/oauth2/v2/auth?test=1"
+    storage.kalender_ruecksprung = ruecksprung
+    storage.kalender_liste = lambda: KALENDER.get("liste", [])
+    storage.kalender_auswahl_speichern = auswahl_speichern
+    storage.kalender_trennen = trennen
+
+
 SKRIPT = f'''
 import attrappe
 attrappe.einsetzen()
@@ -145,15 +186,21 @@ exec(compile(open({str(APP)!r}, encoding="utf-8").read(), {str(APP)!r}, "exec"))
 '''
 
 
-def app(ki: dict | None = None, **daten) -> AppTest:
-    """Neue App mit leerer bzw. vorgegebener Ablage starten und einmal durchlaufen lassen."""
+def app(ki: dict | None = None, kalender: dict | None = None, abfrage: dict | None = None, **daten) -> AppTest:
+    """Neue App mit leerer bzw. vorgegebener Ablage starten und einmal durchlaufen lassen.
+    kalender: Startzustand für KALENDER; abfrage: URL-Parameter (z. B. Rücksprung von Google)."""
     for art in ARTEN:
         SPEICHER[art] = list(daten.get(art, []))
     KI.clear()
     KI.update(ki or {})
     ANFRAGEN.clear()
     LADEN.clear()
+    KALENDER.clear()
+    KALENDER.update(kalender or {})
+    KALENDER_AUFRUFE.clear()
     at = AppTest.from_string(SKRIPT, default_timeout=120)
+    for name, wert in (abfrage or {}).items():
+        at.query_params[name] = wert
     at.run()
     assert not at.exception, [e.message for e in at.exception]
     return at

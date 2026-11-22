@@ -477,56 +477,203 @@ def _drive_beleg_laden(name: str) -> bytes:
 
 # ---------------------------------------------------------------------------
 # Google-Kalender (nur lesen) – Abgleich Beleg <-> Termin, siehe kalender.py
+#
+# Zwei Wege zum Kalender (der erste hat Vorrang):
+# 1. In der App verbunden (Seitenleiste „Kalender verbinden“, kalender_verbindung.py): Zugang verschlüsselt in
+#    kalender_zugang/ (nur anhängen, jüngster Eintrag gilt), Kalender-Auswahl dort mit abgelegt.
+# 2. Secrets: [kalender].kalender_id + [kalender].refresh_token bzw. der Drive-Zugang.
 # ---------------------------------------------------------------------------
+
+def _login_client() -> tuple[str, str] | None:
+    auth = _secrets_abschnitt("auth")
+    return (auth["client_id"], auth["client_secret"]) if auth.get("client_id") and auth.get("client_secret") else None
+
+
+def _verbindungs_geheimnis() -> str | None:
+    return _secrets_abschnitt("auth").get("cookie_secret") or None
+
+
+def kalender_verbinden_moeglich() -> bool:
+    """Knopf „Kalender verbinden“ geht nur mit Google-Login-Client und Login-Geheimnis in den Secrets."""
+    return bool(_login_client() and _verbindungs_geheimnis() and _secrets_abschnitt("auth").get("redirect_uri"))
+
+
+def kalender_anmelde_url(benutzer: str | None) -> str:
+    import kalender_verbindung as kv
+
+    client_id, _ = _login_client()
+    state = kv.state_erzeugen(_verbindungs_geheimnis(), benutzer)
+    return kv.anmelde_url(client_id, kv.ruecksprung_url(_secrets_abschnitt("auth")["redirect_uri"]), state)
+
+
+def kalender_ruecksprung(code: str, state: str, benutzer: str | None, bearbeiter: str | None) -> dict | None:
+    """Rücksprung von Google verarbeiten und Zugang ablegen -> neue Verbindung (ohne Token)."""
+    import kalender_verbindung as kv
+
+    geheimnis = _verbindungs_geheimnis()
+    kv.state_pruefen(geheimnis, state, benutzer)
+    client_id, client_secret = _login_client()
+    zugang = kv.code_einloesen(code, client_id, client_secret,
+                               kv.ruecksprung_url(_secrets_abschnitt("auth")["redirect_uri"]))
+    vorher = kalender_verbindung() or {}
+    _eintrag_speichern("kalender_zugang", {
+        "verbunden": True, "konto": zugang["konto"], "bearbeiter": bearbeiter,
+        "token_verschluesselt": kv.verschluesseln(geheimnis, zugang["refresh_token"]),
+        # gleiches Konto erneut verbunden -> Auswahl behalten, sonst neu wählen
+        "kalender": vorher.get("kalender", []) if vorher.get("konto") == zugang["konto"] else [],
+    })
+    _kalender_termine.clear()
+    return kalender_verbindung()
+
+
+def _letzter_kalender_eintrag() -> dict | None:
+    eintraege = sorted(_eintraege_laden("kalender_zugang"), key=lambda e: e.get("zeitpunkt", ""))
+    return eintraege[-1] if eintraege and eintraege[-1].get("verbunden") else None
+
+
+def _verbindungs_token(eintrag: dict | None) -> str | None:
+    import kalender_verbindung as kv
+
+    geheimnis = _verbindungs_geheimnis()
+    if not eintrag or not geheimnis or not eintrag.get("token_verschluesselt"):
+        return None
+    return kv.entschluesseln(geheimnis, eintrag["token_verschluesselt"])
+
+
+def kalender_verbindung() -> dict | None:
+    """Aktuelle Verbindung aus der App: {"konto", "kalender": [{"id", "name"}], "zeitpunkt", "bearbeiter",
+    "token_ok"} – None, wenn nie verbunden oder getrennt. Der Zugang selbst bleibt in storage."""
+    e = _letzter_kalender_eintrag()
+    if not e:
+        return None
+    return {"konto": e.get("konto"), "kalender": e.get("kalender") or [], "zeitpunkt": e.get("zeitpunkt"),
+            "bearbeiter": e.get("bearbeiter"), "token_ok": _verbindungs_token(e) is not None}
+
+
+def kalender_auswahl_speichern(kalender: list[dict], bearbeiter: str | None) -> None:
+    """Gewählte Kalender ([{"id", "name"}]) als neuen Eintrag ablegen (Zugang bleibt derselbe)."""
+    letzter = _letzter_kalender_eintrag()
+    if not letzter:
+        raise AblageFehler("Kein Kalender verbunden.")
+    _eintrag_speichern("kalender_zugang", {
+        "verbunden": True, "konto": letzter.get("konto"), "bearbeiter": bearbeiter,
+        "token_verschluesselt": letzter.get("token_verschluesselt"),
+        "kalender": [{"id": k["id"], "name": k.get("name") or k["id"]} for k in kalender],
+    })
+    _kalender_termine.clear()
+
+
+def kalender_trennen(bearbeiter: str | None) -> None:
+    _eintrag_speichern("kalender_zugang", {"verbunden": False, "bearbeiter": bearbeiter})
+    _kalender_termine.clear()
+
+
+def _calendar_service(token: str, client_id: str, client_secret: str):
+    from googleapiclient.discovery import build
+
+    creds = _drive_credentials(token, client_id, client_secret)
+    return build("calendar", "v3", credentials=creds, cache_discovery=False)
+
+
+def kalender_liste() -> list[dict]:
+    """Alle Kalender, die das verbundene Konto sehen darf: [{"id", "name", "haupt"}]."""
+    token, client = _verbindungs_token(_letzter_kalender_eintrag()), _login_client()
+    if not token or not client:
+        raise AblageFehler("Kein gültiger Kalender-Zugang – bitte neu verbinden.")
+    service = _calendar_service(token, *client)
+    liste, seite = [], None
+    while True:
+        res = service.calendarList().list(minAccessRole="reader", pageToken=seite).execute()
+        liste += [{"id": k["id"], "name": k.get("summaryOverride") or k.get("summary") or k["id"],
+                   "haupt": bool(k.get("primary"))} for k in res.get("items", [])]
+        seite = res.get("nextPageToken")
+        if not seite:
+            return sorted(liste, key=lambda k: (not k["haupt"], k["name"].lower()))
+
 
 def kalender_id() -> str | None:
     return (_secrets_abschnitt("kalender").get("kalender_id") or "").strip() or None
 
 
-@st.cache_data(ttl=300, show_spinner=False)
-def _kalender_termine(kid: str, von_iso: str, bis_iso: str):
-    from datetime import datetime
+def _kalender_zugriff() -> tuple[str, str, str, list[str], str] | None:
+    """(token, client_id, client_secret, kalender_ids, quelle) – oder None, wenn nicht eingerichtet."""
+    e = _letzter_kalender_eintrag()
+    if e:  # in der App verbunden -> gilt allein (auch wenn noch kein Kalender gewählt ist)
+        token, client = _verbindungs_token(e), _login_client()
+        if token and client and e.get("kalender"):
+            return token, *client, [k["id"] for k in e["kalender"]], "app"
+        return None
+    kid = kalender_id()
+    try:
+        cfg = _drive_config()
+    except AblageFehler:
+        cfg = None
+    if not kid or not cfg:
+        return None
+    # Eigener Kalender-Zugang (z. B. von Annika, nur Kalender lesen) hat Vorrang vor dem Drive-Zugang
+    token = _secrets_abschnitt("kalender").get("refresh_token") or cfg["refresh_token"]
+    return token, cfg["client_id"], cfg["client_secret"], [kid], "secrets"
 
-    from googleapiclient.discovery import build
+
+def kalender_status() -> str:
+    """Kurzer Text für die Seitenleiste."""
+    v = kalender_verbindung()
+    if v:
+        if not v["token_ok"]:
+            return "Verbindung ungültig, bitte neu verbinden"
+        n = len(v["kalender"])
+        return f"verbunden ({n} Kalender)" if n else "verbunden, noch kein Kalender gewählt"
+    return "über Secrets eingerichtet" if _kalender_zugriff() else "nicht verbunden"
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def _kalender_termine(kid: str, von_iso: str, bis_iso: str, token: str, client_id: str, client_secret: str):
+    from datetime import datetime
 
     from kalender import termine_laden
 
-    cfg = _drive_config()
-    # Eigener Kalender-Zugang (z. B. von Annika, nur Kalender lesen) hat Vorrang vor dem Drive-Zugang
-    token = _secrets_abschnitt("kalender").get("refresh_token") or cfg["refresh_token"]
-    creds = _drive_credentials(token, cfg["client_id"], cfg["client_secret"])
-    service = build("calendar", "v3", credentials=creds, cache_discovery=False)
+    service = _calendar_service(token, client_id, client_secret)
     return termine_laden(service, kid, datetime.fromisoformat(von_iso), datetime.fromisoformat(bis_iso))
 
 
 def kalender_abgleichen(analyse):
-    """Beleg mit dem Firmenkalender abgleichen -> kalender.Abgleich."""
+    """Beleg mit dem Firmenkalender (bzw. allen gewählten Kalendern) abgleichen -> kalender.Abgleich."""
     from googleapiclient.errors import HttpError
 
     from kalender import KALENDER_KATEGORIEN, Abgleich, abgleichen, zeitraum
 
     if analyse.kategorie not in KALENDER_KATEGORIEN:
         return Abgleich("nicht_noetig")
-    kid = kalender_id()
-    try:
-        drive = _drive_config()
-    except AblageFehler:
-        drive = None
-    if not kid or not drive:
+    zugriff = _kalender_zugriff()
+    if not zugriff:
         return Abgleich("nicht_eingerichtet", "Kalenderabgleich ist noch nicht eingerichtet.")
+    token, client_id, client_secret, ids, quelle = zugriff
     bereich = zeitraum(analyse)
     if bereich is None:
         return abgleichen(analyse, [])
-    try:
-        termine = _kalender_termine(kid, bereich[0].isoformat(), bereich[1].isoformat())
-    except HttpError as e:
-        if e.resp.status in (401, 403):
-            return Abgleich("fehler", "kein Zugriff auf den Kalender. Zugang einrichten mit "
-                                      "„python drive_token_holen.py --kalender“ (Konto, das den Kalender sehen "
-                                      "darf) oder Kalender für das Drive-Konto freigeben.")
-        if e.resp.status == 404:
-            return Abgleich("fehler", "Kalender nicht gefunden – kalender_id in den Secrets prüfen.")
-        return Abgleich("fehler", f"Kalender nicht erreichbar ({e.resp.status}).")
-    except Exception as e:
-        return Abgleich("fehler", f"Kalender nicht erreichbar: {e}")
+    neu_einrichten = ("Kalender in der Seitenleiste neu verbinden." if quelle == "app" else
+                      "In der Seitenleiste „Kalender verbinden“ oder „python drive_token_holen.py --kalender“.")
+    termine, gesehen = [], set()
+    for kid in ids:
+        try:
+            gefunden = _kalender_termine(kid, bereich[0].isoformat(), bereich[1].isoformat(),
+                                         token, client_id, client_secret)
+        except HttpError as e:
+            if e.resp.status in (401, 403):
+                return Abgleich("fehler", f"kein Zugriff auf den Kalender. {neu_einrichten}")
+            if e.resp.status == 404:
+                return Abgleich("fehler", f"Kalender „{kid}“ nicht gefunden. "
+                                          + ("Kalenderauswahl in der Seitenleiste prüfen." if quelle == "app"
+                                             else "kalender_id in den Secrets prüfen."))
+            return Abgleich("fehler", f"Kalender nicht erreichbar ({e.resp.status}).")
+        except Exception as e:
+            if "invalid_grant" in str(e):  # Zugang widerrufen oder abgelaufen
+                return Abgleich("fehler", f"Kalender-Zugang ist nicht mehr gültig. {neu_einrichten}")
+            return Abgleich("fehler", f"Kalender nicht erreichbar: {e}")
+        for t in gefunden:  # derselbe Termin kann in mehreren Kalendern stehen
+            schluessel = (t.titel, t.start, t.ende)
+            if schluessel not in gesehen:
+                gesehen.add(schluessel)
+                termine.append(t)
+    termine.sort(key=lambda t: t.start)
     return abgleichen(analyse, termine)
