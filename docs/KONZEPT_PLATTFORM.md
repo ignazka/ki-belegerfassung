@@ -4,7 +4,7 @@ Stand 2026-11-18 · Entwurf zur Diskussion
 
 ## 1. Ausgangslage und Ziel
 
-PraktikantAI prüft heute Belege für die Buchhaltung der RE-ALIS GmbH: KI ordnet ein und liest ab, Code rechnet
+Der BelegAssistent prüft heute Belege für die Buchhaltung der RE-ALIS GmbH: KI ordnet ein und liest ab, Code rechnet
 nach, ein Mensch prüft und korrigiert, jede Korrektur wird gemessen und fließt – nach menschlicher Freigabe – in
 die Anweisungen an die KI zurück (Details: [TECHNIK.md](TECHNIK.md)).
 

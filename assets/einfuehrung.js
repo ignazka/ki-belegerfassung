@@ -1,4 +1,4 @@
-// Interaktive Einführung („Tour“) für PraktikantAI – läuft im Browser mit driver.js.
+// Interaktive Einführung („Tour“) für den BelegAssistent – läuft im Browser mit driver.js.
 // Jeder Schritt: tab (Nummer des Tabs, der dafür offen sein muss), ziel (Funktion -> Element oder null = Popup in der
 // Mitte), titel, text. Die Tour wechselt die Tabs selbst. Texte bewusst ohne Fachsprache.
 (function () {
@@ -14,7 +14,7 @@
     [...document.querySelectorAll("button")].find((b) => sichtbar(b) && b.innerText.trim().includes(text)) || null;
 
   const SCHRITTE = [
-    { tab: 0, ziel: null, titel: "Willkommen bei PraktikantAI",
+    { tab: 0, ziel: null, titel: "Willkommen beim BelegAssistent",
       text: "Diese kurze Einführung zeigt dir die wichtigsten Stellen der App. Mit „Weiter“ geht es voran, " +
             "mit Esc oder dem × kannst du jederzeit abbrechen." },
     { tab: 0, ziel: () => $('.stTabs [role="tablist"]'), titel: "Vier Bereiche",

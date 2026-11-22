@@ -1,4 +1,4 @@
-"""Name und Kopfzeile der App: „PraktikantAI“ (AI fett, in Marken-Orange), darunter „powered by“ + Logo."""
+"""Name und Kopfzeile der App: „BelegAssistent“ („Assistent“ fett, in Marken-Orange), darunter „powered by“ + Logo."""
 
 import base64
 from functools import lru_cache
@@ -6,7 +6,7 @@ from pathlib import Path
 
 import streamlit as st
 
-APP_NAME = "PraktikantAI"
+APP_NAME = "BelegAssistent"
 # Marken-Orange leicht abgedunkelt: 4,0:1 auf Weiß – reicht für große Schrift (WCAG AA verlangt dort 3:1)
 _AI_FARBE = "#D65900"
 ASSETS = Path(__file__).parent / "assets"
@@ -83,8 +83,8 @@ def kopfzeile(zentriert: bool = False, gross: bool = False) -> None:
     st.markdown(
         f'<h1 style="margin-bottom:0;padding-bottom:0;font-size:{titel_groesse};line-height:1.1;'
         f'letter-spacing:-.02em;text-align:{"center" if zentriert else "left"}">'
-        '<span style="font-weight:400">Praktikant</span>'
-        f'<span style="font-weight:800;color:{_AI_FARBE}">AI</span></h1>'
+        '<span style="font-weight:400">Beleg</span>'
+        f'<span style="font-weight:800;color:{_AI_FARBE}">Assistent</span></h1>'
         '<div style="display:flex;align-items:center;gap:.6rem;margin:.2rem 0 1.75rem;'
         f'justify-content:{"center" if zentriert else "flex-start"};'
         f'font-size:{text_groesse};opacity:.75">powered by {logo}</div>',

@@ -1,4 +1,4 @@
-"""Praktikant-AI (RE-ALIS) – Belege analysieren, Nachfragen, Kategorien, Auswertung."""
+"""BelegAssistent (RE-ALIS) – Belege analysieren, Nachfragen, Kategorien, Auswertung."""
 
 from datetime import date, datetime
 from types import SimpleNamespace

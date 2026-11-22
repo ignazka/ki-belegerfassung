@@ -303,8 +303,8 @@ essen = BelegAnalyse.model_validate({"kategorie": "restaurant_mit_ec_beleg", "da
                                      "adresse": "Große Himmelsgasse 6, 67346 Speyer"})
 # passt zeitlich (Termin 16:30–18:15, Zahlung 18:30)
 ab = abgleichen(essen, [_t("Abendessen Kunde Müller", "2026-09-04T16:30", "2026-09-04T18:15",
-                           teilnehmer=["Herr Müller", "Simon Jäger"])])
-assert ab.status == "passend" and ab.termin.teilnehmer == ["Herr Müller", "Simon Jäger"], ab
+                           teilnehmer=["Herr Müller", "Max Beispiel"])])
+assert ab.status == "passend" and ab.termin.teilnehmer == ["Herr Müller", "Max Beispiel"], ab
 # passt über den Namen, obwohl ohne Uhrzeit
 ohne_zeit = essen.model_copy(update={"uhrzeit": None})
 assert abgleichen(ohne_zeit, [_t("Team-Essen Domhof", "2026-09-04T12:00", "2026-09-04T13:00")]).status == "passend"

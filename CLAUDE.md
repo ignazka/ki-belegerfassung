@@ -1,13 +1,14 @@
-# CLAUDE.md – PraktikantAI (beleg-poc)
+# CLAUDE.md – BelegAssistent (Repo ki-belegerfassung; früher PraktikantAI / beleg-poc)
 
 Hinweise für Claude in künftigen Sitzungen. Technischer Ablauf für Entwickler: [docs/TECHNIK.md](docs/TECHNIK.md);
 Plattform-Konzept (TS/React/Postgres, mehrere Firmen): [docs/KONZEPT_PLATTFORM.md](docs/KONZEPT_PLATTFORM.md). Bei Änderungen
-an Ablauf oder Datenablage `docs/TECHNIK.md` mitpflegen. Details zum Aufbau stehen in [README.md](README.md), der
+an Ablauf oder Datenablage `docs/TECHNIK.md` mitpflegen (dort auch Dateien, Einrichtung, Entscheidungen).
+[README.md](README.md) ist die kurze öffentliche Projektseite – nur bei größeren Änderungen anpassen. Der
 komplette Prüf- und Rechenablauf in [PRUEFABLAUF.md](PRUEFABLAUF.md) – beide bei Änderungen mitpflegen.
 
 ## Wozu die App dient
 
-**PraktikantAI** (powered by RE-ALIS) ist ein interner **Proof of Concept für Stufe 1 eines Agentic RAG**,
+**BelegAssistent** (powered by RE-ALIS; früher „PraktikantAI“ – interne Bezeichner wie `praktikant-tour` heißen weiter so) ist ein interner **Proof of Concept für Stufe 1 eines Agentic RAG**,
 das die Buchhaltung der RE-ALIS GmbH unterstützen soll. Langfristig ein „KI-Kollege“, der Belege
 zuverlässig einordnet, daraus Entwürfe in **sevDesk** anlegt und später weitere sevDesk-Aufgaben übernimmt.
 
@@ -21,7 +22,7 @@ Prüfung wird gesammelt – als Messgrundlage und als Lernmaterial, um die Anwei
   umgebaut. Pragmatisch bauen, nicht auf Skalierung/Langlebigkeit über-engineeren, keine
   Compliance-Features (Löschfristen o. ä.) vorschlagen, solange der Nutzerkreis so klein bleibt.
 - **Betrieb:** Streamlit Community Cloud, deployt automatisch bei Push auf `main`
-  (Repo `ignazka/beleg-poc`). Login über Google (`st.login`), Ablage in einem Firmen-Google-Drive-Ordner.
+  (Repo `ignazka/ki-belegerfassung`). Login über Google (`st.login`), Ablage in einem Firmen-Google-Drive-Ordner.
 
 ## Was die App heute kann (Stand 2026-11-18)
 
