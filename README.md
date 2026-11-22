@@ -47,3 +47,11 @@ python -m pytest       # Tests ohne API, Drive und Secrets (ca. 10 s)
 - [docs/TECHNIK.md](docs/TECHNIK.md): technischer Ablauf, Dateien, Ablage, Einrichtung, Entscheidungen
 - [PRUEFABLAUF.md](PRUEFABLAUF.md): wie gelesen, gerechnet und geprüft wird
 - [docs/KONZEPT_PLATTFORM.md](docs/KONZEPT_PLATTFORM.md): Ausbau zur Plattform für mehrere Firmen
+
+
+<img width="958" height="455" alt="Screenshot 2026-11-22 124835" src="https://github.com/user-attachments/assets/9ca5696d-b480-4d00-8538-3091caee4bdd" />
+<img width="959" height="454" alt="Screenshot 2026-11-22 124857" src="https://github.com/user-attachments/assets/464ae4cc-006c-49fd-a62c-17b4d73ab21c" />
+<img width="958" height="380" alt="Screenshot 2026-11-22 124911" src="https://github.com/user-attachments/assets/5b5b3384-94ee-43b8-bdef-8cb6ea7a0d06" />
+<img width="950" height="128" alt="Screenshot 2026-11-22 124918" src="https://github.com/user-attachments/assets/335848ca-785f-4f76-b077-733996260e59" />
+<img width="957" height="376" alt="Screenshot 2026-11-22 124925" src="https://github.com/user-attachments/assets/e61deb46-4255-401b-b354-ea3fc1ae64d5" />
+<img width="958" height="455" alt="Screenshot 2026-11-22 124820" src="https://github.com/user-attachments/assets/e516a3bb-e726-40e2-b60d-71881da4d125" />
