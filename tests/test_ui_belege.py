@@ -16,8 +16,9 @@ def test_status_filter_und_tab_beschriftung():
     filter_ = at.segmented_control[0]
     assert filter_.value == "offen"  # Start dort, wo es etwas zu tun gibt
     beschriftungen = filter_.options
-    assert "Nachfragen offen (1)" in beschriftungen and "Ungeprüft (2)" in beschriftungen
+    assert "Nachfragen offen :orange-badge[1]" in beschriftungen and "Ungeprüft :blue-badge[2]" in beschriftungen
     assert "Mit Kommentar (1)" in beschriftungen and "Alle (3)" in beschriftungen
+    assert not any(o.startswith("Alle Nachfragen") for o in beschriftungen)  # Filter entfernt
     assert at.selectbox(key="beleg_wahl").value == "rest"
     assert any("Warum die KI nachfragt" in e.value for e in at.error)
 
@@ -180,3 +181,12 @@ def test_filter_belegart_und_zeitraum_und_zuruecksetzen():
     A.knopf(at, "Filter zurücksetzen").click().run()
     A.keine_fehler(at)
     assert len(_optionen(at)) == 3 and at.text_input(key="belege_suche").value == ""
+
+
+def test_veralteter_filter_in_sitzung_faellt_auf_start_zurueck():
+    at = A.app(**_daten())
+    at.session_state["belege_filter_naechste"] = None
+    at.session_state["belege_filter"] = "nachfrage"  # gab es früher („Alle Nachfragen“)
+    at.run()
+    A.keine_fehler(at)
+    assert at.segmented_control[0].value == "offen"

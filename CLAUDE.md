@@ -32,8 +32,8 @@ Tabs (in `App.py`):
    Während der Analyse zeigt der Knopf einen Spinner und die anderen Tabs sind gesperrt (ein Klick würde
    das Skript neu starten und die Analyse abbrechen). **Jeder** analysierte Beleg wird abgelegt
    (`analysen/` + Original in `belege/`). Geprüft wird hier nicht mehr – nur Ergebnis + Hinweis auf „Belege“.
-2. **Belege** – alle Belege an einer Stelle: Filter *Nachfragen offen · Alle Nachfragen · Ungeprüft ·
-   Korrigiert · Mit Kommentar · Alle*, Blätterleiste, links das Original (Klick = große Ansicht), rechts
+2. **Belege** – alle Belege an einer Stelle: Filter *Nachfragen offen · Ungeprüft ·
+   Korrigiert · Mit Kommentar · Alle* (offene Arbeit als farbige Zahl-Plakette, `:orange-badge[]`/`:blue-badge[]` + CSS), Blätterleiste, links das Original (Klick = große Ansicht), rechts
    Prüfformular („Stimmt die Belegart …? Ja/Nein“ ohne Vorauswahl, Felder, Begründung) bzw. bei geprüften
    Belegen die Tabelle „KI hat gelesen / Richtig ist“ mit „Korrigieren“/„Abbrechen“.
 3. **Kategorien** – Belegarten anlegen/bearbeiten/löschen (Versionen, Entwurf/aktiv), KI-Assistent

@@ -1263,7 +1263,6 @@ def zeige_belege():
 
     filter_ = {
         "offen": ("Nachfragen offen", lambda b: b["status"] == "offen"),
-        "nachfrage": ("Alle Nachfragen", lambda b: bool(b["gruende"])),
         "ungeprueft": ("Ungeprüft", lambda b: b["status"] in ("offen", "ungeprueft")),
         "korrigiert": ("Korrigiert", lambda b: b["status"] == "korrigiert"),
         "kommentar": ("Mit Kommentar", mit_kommentar),
@@ -1273,9 +1272,15 @@ def zeige_belege():
     naechster_filter = ss.pop("belege_filter_naechste", None)  # z. B. aus „Aus Korrekturen lernen“
     if naechster_filter in filter_:
         ss["belege_filter"] = naechster_filter
-    if ss.get("belege_filter") is None:  # Start: dort, wo es etwas zu tun gibt
+    if ss.get("belege_filter") not in filter_:  # Start (oder entfernter Filter): dort, wo es etwas zu tun gibt
         ss["belege_filter"] = next((k for k in ("offen", "ungeprueft") if anzahl[k]), "alle")
-    wahl = st.segmented_control("Anzeigen", list(filter_), format_func=lambda k: f"{filter_[k][0]} ({anzahl[k]})",
+    def filter_beschriftung(k):
+        # Offene Arbeit als farbige Zahl-Plakette (Farbe per CSS), sonst Zahl in Klammern
+        if k in ("offen", "ungeprueft") and anzahl[k]:
+            return f"{filter_[k][0]} :{'orange' if k == 'offen' else 'blue'}-badge[{anzahl[k]}]"
+        return f"{filter_[k][0]} ({anzahl[k]})"
+
+    wahl = st.segmented_control("Anzeigen", list(filter_), format_func=filter_beschriftung,
                                 key="belege_filter", label_visibility="collapsed") or "alle"
     liste = [b for b in belege if filter_[wahl][1](b)]
     if not liste:
@@ -1983,12 +1988,22 @@ st.markdown(
     # Lesequalität (Auswertung): unter 90 % kräftiger, unter 100 % leicht hervorgehoben
     ' --lq-stark: #FDE7D9; --lq-leicht: #FEF3EB; --lq-text: #7A2E00;'
     ' --status-ok-hg: #DCFCE7; --status-ok-text: #14532D; --status-nachfrage-hg: #FEE2E2;'
-    ' --status-nachfrage-text: #7F1D1D; --status-fehler-hg: #E5E7EB; --status-fehler-text: #1F2937;}'
+    ' --status-nachfrage-text: #7F1D1D; --status-fehler-hg: #E5E7EB; --status-fehler-text: #1F2937;'
+    # Zahl-Plaketten an „Nachfragen offen“/„Ungeprüft“ (Tab „Belege“)
+    ' --plakette-offen-hg: #C25100; --plakette-ungeprueft-hg: #4A5A7A; --plakette-text: #fff;}'
     'html[data-thema="dunkel"] {--akzent: #F07A2A; --akzent-flaeche: #3A2414; --leise: #A3A9B6; --rand: #3A3E48;'
     ' --knopf-flaeche: #22252D; --daumen-flaeche: #2A2D36; --gesperrt: #4B505C;'
     ' --lq-stark: #4A2B17; --lq-leicht: #2E2219; --lq-text: #FFC9A3;'
     ' --status-ok-hg: #163A26; --status-ok-text: #A7F3C4; --status-nachfrage-hg: #4A1D1D;'
-    ' --status-nachfrage-text: #FFC4C4; --status-fehler-hg: #2F333C; --status-fehler-text: #E5E7EB;}'
+    ' --status-nachfrage-text: #FFC4C4; --status-fehler-hg: #2F333C; --status-fehler-text: #E5E7EB;'
+    ' --plakette-offen-hg: #F07A2A; --plakette-ungeprueft-hg: #A9B8D6; --plakette-text: #14151A;}'
+    # Plaketten: kräftig statt Streamlits blasser Badge-Farben (Reihenfolge der Filter: offen, ungeprüft)
+    '.st-key-belege_filter .stMarkdownBadge {color: var(--plakette-text) !important; font-weight: 700;'
+    ' border-radius: 999px !important; padding: 0 .5em !important; min-width: 1.5em; text-align: center;}'
+    '.st-key-belege_filter button:nth-of-type(1) .stMarkdownBadge'
+    ' {background-color: var(--plakette-offen-hg) !important;}'
+    '.st-key-belege_filter button:nth-of-type(2) .stMarkdownBadge'
+    ' {background-color: var(--plakette-ungeprueft-hg) !important;}'
     '[class*="st-key-belegbild_"] img {max-height: 560px; width: auto; max-width: 100%; object-fit: contain;'
     ' display: block; margin: 0 auto;}'
     '[class*="st-key-belegbild_"] {position: relative;}'

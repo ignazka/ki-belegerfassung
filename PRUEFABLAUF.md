@@ -219,8 +219,9 @@ Feldprüfung).
 (mehrere Wörter: alle müssen vorkommen), Auswahl der Belegart und Zeitraum nach Belegdatum. Bei geprüften
 Belegen zählen die korrigierten Werte. „Filter zurücksetzen“ leert alles.
 
-**Filter** (oben, gut sichtbar): Nachfragen offen · Alle Nachfragen · Ungeprüft · Korrigiert · Mit Kommentar ·
-Alle. Beim Öffnen steht er dort, wo es etwas zu tun gibt. Der Tab zeigt die Zahl offener Nachfragen.
+**Filter** (oben, gut sichtbar): Nachfragen offen · Ungeprüft · Korrigiert · Mit Kommentar ·
+Alle. Liegt unter „Nachfragen offen“ oder „Ungeprüft“ etwas, steht die Zahl als farbige Plakette daneben
+(orange bzw. grau-blau), sonst in Klammern. Beim Öffnen steht er dort, wo es etwas zu tun gibt. Der Tab zeigt die Zahl offener Nachfragen.
 
 **Ansicht**: Auswahlliste mit Vor/Zurück-Pfeilen. Oben die Gründe der KI (falls nachgefragt), links das
 Original groß und so hoch wie das Formular daneben (mehrere Seiten: unten ‹ Seite x von n › und
