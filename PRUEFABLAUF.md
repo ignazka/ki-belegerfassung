@@ -220,8 +220,9 @@ Feldprüfung).
 Belegen zählen die korrigierten Werte. „Filter zurücksetzen“ leert alles.
 
 **Filter** (oben, gut sichtbar): Nachfragen offen · Ungeprüft · Korrigiert · Mit Kommentar ·
-Alle. Liegt unter „Nachfragen offen“ oder „Ungeprüft“ etwas, steht die Zahl als farbige Plakette daneben
-(orange bzw. grau-blau), sonst in Klammern. Beim Öffnen steht er dort, wo es etwas zu tun gibt. Der Tab zeigt die Zahl offener Nachfragen.
+Alle. „Ungeprüft“ sind nur Belege ohne Nachfrage (KI war sicher, noch niemand hat geprüft) – beide Filter
+überschneiden sich nicht. Liegt unter „Nachfragen offen“ oder „Ungeprüft“ etwas, steht die Zahl als farbige Plakette daneben
+(orange bzw. grau-blau), sonst in Klammern. Beim Öffnen steht er dort, wo es etwas zu tun gibt. Der Tab zeigt die Zahl offener Nachfragen als Plakette („3 offen“).
 
 **Ansicht**: Auswahlliste mit Vor/Zurück-Pfeilen. Oben die Gründe der KI (falls nachgefragt), links das
 Original groß und so hoch wie das Formular daneben (mehrere Seiten: unten ‹ Seite x von n › und

@@ -1263,7 +1263,7 @@ def zeige_belege():
 
     filter_ = {
         "offen": ("Nachfragen offen", lambda b: b["status"] == "offen"),
-        "ungeprueft": ("Ungeprüft", lambda b: b["status"] in ("offen", "ungeprueft")),
+        "ungeprueft": ("Ungeprüft", lambda b: b["status"] == "ungeprueft"),  # ohne Nachfrage (die stehen unter „offen“)
         "korrigiert": ("Korrigiert", lambda b: b["status"] == "korrigiert"),
         "kommentar": ("Mit Kommentar", mit_kommentar),
         "alle": ("Alle", lambda b: True),
@@ -1998,9 +1998,10 @@ st.markdown(
     ' --status-nachfrage-text: #FFC4C4; --status-fehler-hg: #2F333C; --status-fehler-text: #E5E7EB;'
     ' --plakette-offen-hg: #F07A2A; --plakette-ungeprueft-hg: #A9B8D6; --plakette-text: #14151A;}'
     # Plaketten: kräftig statt Streamlits blasser Badge-Farben (Reihenfolge der Filter: offen, ungeprüft)
-    '.st-key-belege_filter .stMarkdownBadge {color: var(--plakette-text) !important; font-weight: 700;'
+    '.st-key-belege_filter .stMarkdownBadge, .stTabs [role="tab"] .stMarkdownBadge'
+    ' {color: var(--plakette-text) !important; font-weight: 700;'
     ' border-radius: 999px !important; padding: 0 .5em !important; min-width: 1.5em; text-align: center;}'
-    '.st-key-belege_filter button:nth-of-type(1) .stMarkdownBadge'
+    '.st-key-belege_filter button:nth-of-type(1) .stMarkdownBadge, .stTabs [role="tab"] .stMarkdownBadge'
     ' {background-color: var(--plakette-offen-hg) !important;}'
     '.st-key-belege_filter button:nth-of-type(2) .stMarkdownBadge'
     ' {background-color: var(--plakette-ungeprueft-hg) !important;}'
@@ -2099,7 +2100,7 @@ kopfzeile()
 _offen = _offene_nachfragen()
 tab_analyse, tab_belege, tab_kategorien, tab_auswertung = st.tabs([
     ":material/upload_file: Belege hochladen",
-    ":material/receipt_long: Belege" + (f" ({_offen} {'Nachfrage' if _offen == 1 else 'Nachfragen'} offen)" if _offen else ""),
+    ":material/receipt_long: Belege" + (f" :orange-badge[{_offen} offen]" if _offen else ""),  # Plakette, Farbe per CSS
     ":material/category: Kategorien",
     ":material/monitoring: Auswertung",
 ])

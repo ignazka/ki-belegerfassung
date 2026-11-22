@@ -26,7 +26,8 @@
             "Danach auf „Analysieren“: Die KI liest jeden Beleg zweimal, der Code rechnet alle Beträge nach." },
     { tab: 1, ziel: () => ersterSichtbarer(".st-key-belege_filter"), titel: "Alle Belege an einer Stelle",
       text: "Jeder analysierte Beleg landet hier. <b>Nachfragen offen</b>: Die KI war unsicher und braucht dich. " +
-            "<b>Ungeprüft</b>: Hier hat noch niemand draufgeschaut. Die Zahl in Klammern zeigt, wie viele es sind. " +
+            "<b>Ungeprüft</b>: Die KI war sicher, aber noch niemand hat draufgeschaut – zur Kontrolle. " +
+            "Die farbige Zahl zeigt, wie viele es sind. " +
             "Darüber kannst du nach Name, Ort oder Nummer suchen und nach Belegart oder Belegdatum filtern." },
     { tab: 1, ziel: () => ersterSichtbarer(".st-key-beleg_blaettern"), titel: "Durchblättern",
       text: "Mit „Vorheriger“ und „Nächster“ gehst du die Liste Beleg für Beleg durch. Darüber kannst du einen " +

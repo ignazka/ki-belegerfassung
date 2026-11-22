@@ -26,7 +26,7 @@ def test_nachfrage_wird_angezeigt_und_abgelegt():
     assert A.SPEICHER["analysen"][0]["gruende"] == ["Ausland"]
     assert any("Nachfrage nötig" in e.value for e in at.error)
     assert any("Nachfragen offen" in i.value for i in at.info)
-    assert "1 Nachfrage offen" in at.tabs[1].label
+    assert ":orange-badge[1 offen]" in at.tabs[1].label
 
 
 def test_stapel():

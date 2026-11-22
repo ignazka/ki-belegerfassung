@@ -12,11 +12,11 @@ def _daten():
 
 def test_status_filter_und_tab_beschriftung():
     at = A.app(**_daten())
-    assert "1 Nachfrage offen" in at.tabs[1].label
+    assert ":orange-badge[1 offen]" in at.tabs[1].label
     filter_ = at.segmented_control[0]
     assert filter_.value == "offen"  # Start dort, wo es etwas zu tun gibt
     beschriftungen = filter_.options
-    assert "Nachfragen offen :orange-badge[1]" in beschriftungen and "Ungeprüft :blue-badge[2]" in beschriftungen
+    assert "Nachfragen offen :orange-badge[1]" in beschriftungen and "Ungeprüft :blue-badge[1]" in beschriftungen
     assert "Mit Kommentar (1)" in beschriftungen and "Alle (3)" in beschriftungen
     assert not any(o.startswith("Alle Nachfragen") for o in beschriftungen)  # Filter entfernt
     assert at.selectbox(key="beleg_wahl").value == "rest"
