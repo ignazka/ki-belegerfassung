@@ -195,7 +195,7 @@ Zu jeder **Bewirtung** und **Übernachtung** muss es einen passenden Termin im G
 - Nicht gefunden: **Nachfrage**, mit den Terminen im Zeitraum als Hilfe („vielleicht ist einer davon gemeint“).
 - Noch nicht eingerichtet: nur ein Hinweis, keine Nachfrage.
 
-Einrichtung: In der Seitenleiste **„Kalender verbinden“** – mit dem Konto anmelden, das die Termine sieht
+Einrichtung: In der Seitenleiste neben „Kalender: nicht verbunden“ auf **„Verbinden“** – mit dem Konto anmelden, das die Termine sieht
 (z. B. Annika), „Kalender ansehen“ erlauben und auswählen, welche Kalender gelten (mehrere möglich; die App sucht
 in allen). Unter „Kalender: verbunden“ lässt sich die Auswahl ändern, neu verbinden oder trennen.
 Alter Weg, gilt nur ohne Verbindung in der App: `kalender_id` unter `[kalender]` in den Secrets, Zugriff über den

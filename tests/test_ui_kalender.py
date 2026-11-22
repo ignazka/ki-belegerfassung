@@ -16,7 +16,7 @@ def test_nicht_verbunden_zeigt_knopf():
     A.keine_fehler(at)
     assert any("Kalender: nicht verbunden" in c.value for c in at.sidebar.caption)
     knopf = at.sidebar.get("link_button")[0]
-    assert knopf.proto.label == "Kalender verbinden" and knopf.proto.url.startswith("https://accounts.google.com/")
+    assert knopf.proto.label == "Verbinden" and knopf.proto.url.startswith("https://accounts.google.com/")
 
 
 def test_ruecksprung_verbindet_und_fragt_nach_kalendern():

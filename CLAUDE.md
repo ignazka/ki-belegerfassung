@@ -163,7 +163,7 @@ Einträge müssen lesbar bleiben.
 
 Kurzfristig:
 - **Kalender verbinden** (Calendar API und Weiterleitungs-URI sind eingerichtet): Annika klickt in der
-  Seitenleiste „Kalender verbinden“ und wählt die Kalender. Danach an echten Belegen prüfen, ob die Regeln in
+  Seitenleiste neben „Kalender: nicht verbunden“ auf „Verbinden“ und wählt die Kalender. Danach an echten Belegen prüfen, ob die Regeln in
   `kalender.py` zu oft/zu selten nachfragen.
 - **Texterkennung (OCR), Stufe 2:** Wenn „Lesequalität“ mit genug Belegen (einige Dutzend) eine klare
   Schwachstelle zeigt (bisher: Textfelder/Adresse in den ersten Lesungen), Vergleichsskript außerhalb der App:

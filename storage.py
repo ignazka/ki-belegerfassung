@@ -652,7 +652,7 @@ def kalender_abgleichen(analyse):
     if bereich is None:
         return abgleichen(analyse, [])
     neu_einrichten = ("Kalender in der Seitenleiste neu verbinden." if quelle == "app" else
-                      "In der Seitenleiste „Kalender verbinden“ oder „python drive_token_holen.py --kalender“.")
+                      "In der Seitenleiste neben „Kalender“ auf „Verbinden“ klicken.")
     termine, gesehen = [], set()
     for kid in ids:
         try:

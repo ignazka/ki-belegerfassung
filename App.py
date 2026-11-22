@@ -163,7 +163,7 @@ def _kalender_seitenleiste() -> None:
     moeglich = kalender_verbinden_moeglich()
     url = kalender_anmelde_url(aktueller_benutzer()) if moeglich else None
     hilfe = ("Zu Bewirtungen und Übernachtungen sucht die App einen passenden Termin im Google-Kalender. "
-             "„Kalender verbinden“ öffnet Google in einem neuen Tab: mit dem Konto anmelden, das die Termine "
+             "„Verbinden“ öffnet Google in einem neuen Tab: mit dem Konto anmelden, das die Termine "
              "sieht, und „Kalender ansehen“ erlauben. Die App liest nur, sie ändert nichts.")
     if verbindung:
         kurz = ("neu verbinden" if not verbindung["token_ok"] else
@@ -188,10 +188,12 @@ def _kalender_seitenleiste() -> None:
                 ss["kalender_meldung"] = ("ok", "Kalender getrennt.")
                 st.rerun()
     else:
-        st.sidebar.caption(f"Kalender: {kalender_status()}", help=hilfe)
+        # Status und kleiner Knopf in einer Zeile (Größe per CSS: .st-key-kalender_verbinden)
+        zeile = st.sidebar.container(horizontal=True, vertical_alignment="center", gap="small", wrap=False,
+                                     key="kalender_zeile")
+        zeile.caption(f"Kalender: {kalender_status()}", width="content", help=None if url else hilfe)
         if url:
-            st.sidebar.link_button("Kalender verbinden", url, icon=":material/event:", key="kalender_verbinden",
-                                   help=hilfe)
+            zeile.link_button("Verbinden", url, key="kalender_verbinden", help=hilfe)
     meldung = ss.pop("kalender_meldung", None)
     if meldung:
         art, text = meldung
@@ -2118,6 +2120,11 @@ st.markdown(
     ' --status-nachfrage-text: #FFC4C4; --status-fehler-hg: #2F333C; --status-fehler-text: #E5E7EB;'
     ' --plakette-offen-hg: #F07A2A; --plakette-ungeprueft-hg: #A9B8D6; --plakette-text: #14151A;}'
     # Plaketten: kräftig statt Streamlits blasser Badge-Farben (Reihenfolge der Filter: offen, ungeprüft)
+    # Seitenleiste: „Kalender: nicht verbunden“ + kleiner Knopf in einer Zeile
+    '.st-key-kalender_zeile {justify-content: space-between;}'
+    '.st-key-kalender_zeile [data-testid="stCaptionContainer"], .st-key-kalender_zeile p {margin: 0; white-space: nowrap;}'
+    '.st-key-kalender_verbinden a {min-height: 0; padding: .1rem .6rem; border-radius: .4rem; white-space: nowrap;}'
+    '.st-key-kalender_verbinden a p, .st-key-kalender_verbinden a span {font-size: .85rem;}'
     '.st-key-belege_filter .stMarkdownBadge, .stTabs [role="tab"] .stMarkdownBadge'
     ' {color: var(--plakette-text) !important; font-weight: 700;'
     ' border-radius: 999px !important; padding: 0 .5em !important; min-width: 1.5em; text-align: center;}'
