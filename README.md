@@ -10,8 +10,7 @@ Später sollen daraus direkt Buchungsentwürfe in **sevDesk** entstehen.
 ## Was die App macht
 
 1. **Hochladen:** Foto oder PDF, auch mehrseitig oder als Stapel. <img width="958" height="455" alt="Screenshot 2026-11-22 124820" src="https://github.com/user-attachments/assets/552875d0-9f3a-490e-b485-177414f63621" />
-2. **Kategorien erstellen:** Individuelle Beleg-Klassifizierung festlegen <img width="959" height="454" alt="Screenshot 2026-11-22 125509" src="https://github.com/user-attachments/assets/89003087-26ec-4f5e-8caf-73e37e4c6407" /><img width="959" height="452" alt="Screenshot 2026-11-22 125520" src="https://github.com/user-attachments/assets/ec4db8a4-49b3-4f2c-978b-bea97a3df455" />
-<img width="958" height="454" alt="Screenshot 2026-11-22 125531" src="https://github.com/user-attachments/assets/7c0a83aa-f887-400f-b868-cdcbe86b65d1" />
+2. **Kategorien erstellen:** Individuelle Beleg-Klassifizierung festlegen <img width="959" height="454" alt="Screenshot 2026-11-22 125509" src="https://github.com/user-attachments/assets/89003087-26ec-4f5e-8caf-73e37e4c6407" /><img width="959" height="452" alt="Screenshot 2026-11-22 125520" src="https://github.com/user-attachments/assets/ec4db8a4-49b3-4f2c-978b-bea97a3df455" /><img width="958" height="454" alt="Screenshot 2026-11-22 125531" src="https://github.com/user-attachments/assets/7c0a83aa-f887-400f-b868-cdcbe86b65d1" />
 3. **Einordnen und ablesen:** Belegart, Datum, Beträge, Steuersätze, Lieferant und SKR04-Konto.
 4. **Nachrechnen im Code:** MwSt., Netto und Trinkgeld rechnet der Code, nicht die KI. Passt etwas nicht
    oder ist die KI unsicher, entsteht eine **Nachfrage** an einen Menschen.
