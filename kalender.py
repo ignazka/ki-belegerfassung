@@ -24,6 +24,7 @@ Regeln (bewusst einfach und nachvollziehbar, Werte unten anpassbar):
 
 import re
 import unicodedata
+from difflib import SequenceMatcher
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
@@ -41,6 +42,8 @@ KALENDER_KATEGORIEN = set(BEWIRTUNG_KATEGORIEN) | {"uebernachtung"}
 ESSENS_HINWEISE = ("mittag", "lunch", "dinner", "fruhstuck", "brunch", "bewirtung", "restaurant", "kaffee",
                    "cafe", "bistro", "imbiss")
 _KEIN_ESSEN = ("interessen", "messen")
+_VOR_STADT = {"in", "nach", "aus", "ab", "bis", "von"}  # „Messe in Essen“ -> Stadt, nicht Mahlzeit
+AEHNLICHKEIT_MIN = 0.85  # Tippfehler-Toleranz beim Namensvergleich (1,0 = exakt; „domhoff“/„domhof“ ≈ 0,92)
 _FUELLWOERTER = {"gmbh", "co", "kg", "ag", "ug", "mbh", "restaurant", "hotel", "gasthaus", "gaststaette",
                  "cafe", "bar", "und", "der", "die", "das", "im", "am", "zum", "zur", "the", "inh", "inhaber"}
 
@@ -107,25 +110,49 @@ def stadt_aus_adresse(adresse: str | None) -> str | None:
     return treffer.group(1).strip(" ,.") if treffer else None
 
 
+def _aehnlich(beleg_wort: str, termin_wort: str) -> bool:
+    """Gleiches Wort – auch mit Tippfehler („Domhoff“) oder abgekürzt („Domh.“ für „Domhof“). Zahlen nur exakt."""
+    if beleg_wort == termin_wort:
+        return True
+    if not (beleg_wort.isalpha() and termin_wort.isalpha()):
+        return False
+    if beleg_wort.startswith(termin_wort):  # Abkürzung im Termin (mind. 4 Buchstaben, siehe _woerter)
+        return True
+    return (min(len(beleg_wort), len(termin_wort)) >= 5
+            and SequenceMatcher(None, beleg_wort, termin_wort).ratio() >= AEHNLICHKEIT_MIN)
+
+
+def _gemeinsames_wort(beleg_text: str, termin_woerter: set[str]) -> str | None:
+    for w in sorted(_woerter(beleg_text)):
+        if any(_aehnlich(w, t) for t in termin_woerter):
+            return w
+    return None
+
+
 def _erwaehnt(termin: Termin, analyse: BelegAnalyse) -> str | None:
     """Nennt der Termin den Aussteller (z. B. Restaurant/Hotel) oder die Stadt? -> was gefunden wurde."""
     text = _woerter(f"{termin.titel} {termin.ort} {termin.beschreibung}")
-    gemeinsam = _woerter(analyse.restaurant_name or "") & text
-    if gemeinsam:
-        return f"Name „{sorted(gemeinsam)[0]}“"
+    wort = _gemeinsames_wort(analyse.restaurant_name or "", text)
+    if wort:
+        return f"Name „{wort}“"
     stadt = stadt_aus_adresse(analyse.adresse)
-    if stadt and _woerter(stadt) & text:
+    if stadt and _gemeinsames_wort(stadt, text):
         return f"Ort „{stadt}“"
     return None
 
 
 def klingt_nach_essen(termin: Termin) -> bool:
-    """Deutet Titel, Ort oder Beschreibung auf ein Essen hin (Mittag, Abendessen, Lunch, Bewirtung …)?"""
-    for w in re.findall(r"[a-z0-9]+", _norm(f"{termin.titel} {termin.ort} {termin.beschreibung}")):
-        if w.startswith(ESSENS_HINWEISE):
-            return True
-        if w.endswith("essen") and not w.endswith(_KEIN_ESSEN):
-            return True
+    """Deutet Titel, Ort oder Beschreibung auf ein Essen hin (Mittag, Abendessen, Lunch, Bewirtung …)?
+    Das bloße Wort „Essen“ zählt nicht, wenn es die Stadt meint („Messe in Essen“, „45127 Essen“)."""
+    for feld in (termin.titel, termin.ort, termin.beschreibung):
+        woerter = re.findall(r"[a-z0-9]+", _norm(feld))
+        for i, w in enumerate(woerter):
+            if w.startswith(ESSENS_HINWEISE):
+                return True
+            if w == "essen" and i > 0 and (woerter[i - 1] in _VOR_STADT or re.fullmatch(r"\d{5}", woerter[i - 1])):
+                continue  # Stadt Essen
+            if w.endswith("essen") and not w.endswith(_KEIN_ESSEN):
+                return True
     return False
 
 

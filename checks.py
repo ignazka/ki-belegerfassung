@@ -154,6 +154,13 @@ def _uhrzeit_norm(s: str | None) -> str:
     return f"{int(treffer.group(1)):02d}:{treffer.group(2)}" if treffer else _text_norm(s)
 
 
+def _plz(adresse: str | None) -> str:
+    """Fünfstellige Postleitzahl aus der Adresse ('…, 67346 Speyer' -> '67346'); ohne (z. B. Ausland) leer.
+    Nur die PLZ, nicht der Ortsname: „Frankfurt a. M.“ / „Frankfurt am Main“ ist kein Lesefehler."""
+    treffer = re.search(r"\b(\d{5})\s+[A-Za-zÄÖÜäöüß]", adresse or "")
+    return treffer.group(1) if treffer else ""
+
+
 def vergleichswerte(a: BelegAnalyse) -> dict[str, str]:
     """Die Felder, die beim Doppelt-Lesen übereinstimmen müssen – normalisiert, als Anzeigetext."""
     zeilen = sorted(
@@ -166,6 +173,7 @@ def vergleichswerte(a: BelegAnalyse) -> dict[str, str]:
         "Aussteller": _text_norm(a.restaurant_name),
         "Datum": a.datum or "",
         "Uhrzeit": _uhrzeit_norm(a.uhrzeit),  # wichtig für Kalenderabgleich und EC-Beleg
+        "PLZ": _plz(a.adresse),               # Stadt zählt beim Kalenderabgleich
         "Gesamtbetrag": _eur(a.brutto) if a.brutto is not None else "",
         "EC-Betrag": _eur(a.ec_betrag) if a.ec_betrag is not None else "",
         "MwSt.-Aufstellung": "; ".join(
@@ -190,5 +198,5 @@ def abweichungen(a: BelegAnalyse, b: BelegAnalyse) -> dict[str, tuple[str, str]]
 def anzeige_wert(feld: str, a: BelegAnalyse) -> str:
     """Wert eines Vergleichsfelds lesbar (nicht normalisiert) für Meldungen."""
     roh = {"Belegnummer": a.belegnummer, "Aussteller": a.restaurant_name, "Datum": datum_de(a.datum),
-           "Uhrzeit": a.uhrzeit}
+           "Uhrzeit": a.uhrzeit, "PLZ": a.adresse}
     return (roh.get(feld) if feld in roh else vergleichswerte(a)[feld]) or "–"

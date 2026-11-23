@@ -179,6 +179,16 @@ assert abweichungen(domhof.model_copy(update={"uhrzeit": "8:05"}),
                     domhof.model_copy(update={"uhrzeit": "08:05"})) == {}
 assert abweichungen(mit_zeit, domhof.model_copy(update={"uhrzeit": "16:30"})) == {"Uhrzeit": ("18:30", "16:30")}
 assert "Uhrzeit" in abweichungen(mit_zeit, domhof.model_copy(update={"uhrzeit": None}))
+# PLZ: Schreibweise der Stadt egal, andere PLZ ist eine Abweichung (Anzeige mit ganzer Adresse)
+from checks import anzeige_wert  # noqa: E402
+
+mit_adresse = domhof.model_copy(update={"adresse": "Große Himmelsgasse 6, 67346 Speyer"})
+assert abweichungen(mit_adresse, domhof.model_copy(update={"adresse": "Gr. Himmelsg. 6, 67346 Speyer am Rhein"})) == {}
+assert abweichungen(mit_adresse, domhof.model_copy(update={"adresse": "Große Himmelsgasse 6, 67364 Speyer"})) == {
+    "PLZ": ("67346", "67364")}
+assert anzeige_wert("PLZ", mit_adresse) == "Große Himmelsgasse 6, 67346 Speyer"
+assert abweichungen(domhof.model_copy(update={"adresse": "Via Roma 1, Milano"}),
+                    domhof.model_copy(update={"adresse": "Via Roma 1 Milano"})) == {}  # ohne PLZ: kein Vergleich
 
 # Cent-genaues Rechnen (keine Float-Fehler)
 from beleg_schema import differenz, mwst_aus_brutto, mwst_aus_netto, summe  # noqa: E402
@@ -341,6 +351,19 @@ for titel, ok in [("Interessenten-Gespräch", False), ("Messen planen", False), 
 t_ = _t("Kunde Müller", "2026-09-04T17:00", "2026-09-04T18:00")
 t_.beschreibung = "Abendessen, danach Vertrag besprechen"
 assert abgleichen(essen, [t_]).status == "passend"
+# Tippfehler oder Abkürzung im Termin trifft trotzdem, ein anderer Name nicht
+for titel, ok in [("Kunde bei Domhoff", True), ("Kunde Rest. Domh.", True), ("Kunde Lindner", False)]:
+    st_ = abgleichen(essen, [_t(titel, "2026-09-04T10:00", "2026-09-04T11:00")]).status
+    assert st_ == ("passend" if ok else "kein_termin"), (titel, st_)
+# Stadt Essen ist kein Essenshinweis („Messe in Essen“, „45127 Essen“), die Mahlzeit schon
+from kalender import klingt_nach_essen  # noqa: E402
+
+for titel, ort, ok in [("Messe in Essen", "", False), ("Kundentermin", "Hauptstr. 1, 45127 Essen", False),
+                       ("Essen mit Kunde", "", True), ("Kunde Müller, danach Essen", "", True),
+                       ("Geschäftsessen in Essen", "", True)]:
+    t_ = _t(titel, "2026-09-04T17:00", "2026-09-04T18:00", ort=ort)
+    assert klingt_nach_essen(t_) == ok, titel
+assert abgleichen(essen, [_t("Messe in Essen", "2026-09-04T17:00", "2026-09-04T18:00")]).status == "kein_termin"
 # Name/Stadt im Termin reicht weiterhin ohne Essenshinweis
 assert abgleichen(essen, [_t("Kunde Müller", "2026-09-04T10:00", "2026-09-04T11:00", ort="Speyer")]).status == "passend"
 # gar kein Termin

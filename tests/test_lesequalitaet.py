@@ -84,3 +84,48 @@ def test_anzeige_in_der_auswertung():
 def test_anzeige_ohne_lesungen():
     at = A.app(analysen=[A.analyse_eintrag("x")], feedback=[A.bewertung("x")])
     assert any("Noch keine geprüften Belege mit gespeicherten Lesungen" in i.value for i in at.info)
+
+
+# Wann hilft der Schiedsrichter?
+STIMMIG = {"steuersatz_erkennbar": True, "steuerzeilen": [{"satz": 19, "netto": 112.1, "mwst": 21.3}]}
+
+
+def test_grund_art():
+    assert LQ.grund_art("Belegart unsicher: kein Gericht") == "Belegart unsicher"
+    assert LQ.grund_art("Auslandsbeleg – dafür gilt eine abweichende Handhabe.") == "Auslandsbeleg"
+    assert LQ.grund_art("Kein Steuersatz ausgewiesen.") == "Kein Steuersatz ausgewiesen"
+
+
+def test_wirkung_abweichung_geklaert_und_besser():
+    # Original 1976, Kontrast 1916 -> Abweichung; Schiedsrichter 1916 klärt sie; Mensch: 1916 ist richtig
+    beleg = {"lesungen": [lesung("original", **STIMMIG), lesung("kontrast", belegnummer="1916", **STIMMIG),
+                          lesung("hochaufgelöst", belegnummer="1916", **STIMMIG)],
+             "bewertung": bewertung({"belegnummer": "1916"})}
+    w = LQ.schiedsrichter_wirkung([beleg])
+    assert w[LQ.ABWEICHUNG] == {"einsaetze": 1, "aufgeloest": 1, "geaendert": 1, "geprueft": 1,
+                                "besser": 1, "schlechter": 0}
+
+
+def test_wirkung_grund_bleibt_kandidat_zum_ueberspringen():
+    # beide Lesungen gleich, aber Belegart unsicher; Schiedsrichter sieht es genauso -> nichts bewirkt
+    unsicher = {**STIMMIG, "kategorie_unsicher": True, "kategorie_grund": "kein Gericht erkennbar"}
+    belege = [{"lesungen": [lesung(v, **unsicher) for v in ("original", "kontrast", "hochaufgelöst")],
+               "bewertung": None}] * 5
+    w = LQ.schiedsrichter_wirkung(belege)
+    assert w["Belegart unsicher"]["einsaetze"] == 5 and not w["Belegart unsicher"]["aufgeloest"]
+    assert LQ.ABWEICHUNG not in w and LQ.ueberspringen_kandidaten(w) == ["Belegart unsicher"]
+    # ohne Schiedsrichter oder ohne Lesungen zählt nichts
+    assert LQ.schiedsrichter_wirkung([{"lesungen": [lesung("original")], "bewertung": None},
+                                      {"lesungen": None, "bewertung": None}]) == {}
+
+
+def test_wirkung_in_der_auswertung():
+    analyse = {"datei_sha256": "x", "dateiname": "a.jpg", "gruende": [], "lesungen": [
+        lesung("original", **STIMMIG), lesung("kontrast", belegnummer="1916", **STIMMIG),
+        lesung("hochaufgelöst", belegnummer="1916", **STIMMIG)]}
+    fb = {"datei_sha256": "x", "dateiname": "a.jpg", "quelle": "pruefung", **bewertung({"belegnummer": "1916"})}
+    at = A.app(analysen=[analyse], feedback=[fb])
+    A.keine_fehler(at)
+    assert any("Wann hilft der Schiedsrichter?" in m.value for m in at.markdown)
+    zeilen = [str(t.value.to_dict("records")) for t in at.table] + [str(d.value.to_dict("records")) for d in at.dataframe]
+    assert any(LQ.ABWEICHUNG in z and "1 / 0 (bei 1 Belegen)" in z for z in zeilen), zeilen

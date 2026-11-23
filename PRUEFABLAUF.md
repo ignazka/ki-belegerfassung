@@ -128,10 +128,12 @@ Alles über dieser Toleranz gilt als Ablesefehler. Die Toleranzen stehen an eine
 
 Datei: `checks.py` (`abweichungen`)
 
-Verglichen werden: Belegart, Konto, Belegnummer, Aussteller, Datum, Uhrzeit, Gesamtbetrag, EC-Betrag und
-die MwSt.-Aufstellung. Groß-/Kleinschreibung, Leer- und Satzzeichen zählen nicht. Beim Namen gilt
+Verglichen werden: Belegart, Konto, Belegnummer, Aussteller, Datum, Uhrzeit, Postleitzahl, Gesamtbetrag,
+EC-Betrag und die MwSt.-Aufstellung. Groß-/Kleinschreibung, Leer- und Satzzeichen zählen nicht. Beim Namen gilt
 „Aral“ = „ARAL Tankstelle Speyer“ (der eine Name ist im anderen enthalten). Bei der Uhrzeit zählen nur
-Stunde und Minute („18.30“ = „18:30:12“); liest nur eine Lesung eine Uhrzeit, ist das eine Abweichung.
+Stunde und Minute („18.30“ = „18:30:12“); liest nur eine Lesung eine Uhrzeit, ist das eine Abweichung. Von
+der Adresse zählt nur die fünfstellige Postleitzahl (die Stadt braucht der Kalenderabgleich) – der Ortsname
+nicht, denn „Frankfurt a. M.“ / „Frankfurt am Main“ ist kein Lesefehler. Ohne PLZ (Ausland) kein Vergleich.
 
 ## 6. Schiedsrichter: größeres Modell bei Zweifel
 
@@ -191,7 +193,7 @@ Zu jeder **Bewirtung** und **Übernachtung** muss es einen passenden Termin im G
 
 | Belegart | passend, wenn … |
 |---|---|
-| Bewirtung | ein Termin am Belegdatum Restaurantname bzw. Stadt in Titel, Ort oder Beschreibung nennt, **oder** zeitlich zur Zahlung passt (beginnt höchstens 5 Std. vorher, endet frühestens 1 Std. vorher) **und** nach Essen klingt (z. B. Mittagessen, Abendessen, Lunch, Dinner, Frühstück, Bewirtung). Passt ein Termin nur zur Uhrzeit (z. B. „Zahnarzt“), gibt es eine Nachfrage |
+| Bewirtung | ein Termin am Belegdatum Restaurantname bzw. Stadt in Titel, Ort oder Beschreibung nennt, **oder** zeitlich zur Zahlung passt (beginnt höchstens 5 Std. vorher, endet frühestens 1 Std. vorher) **und** nach Essen klingt (z. B. Mittagessen, Abendessen, Lunch, Dinner, Frühstück, Bewirtung; die Stadt Essen – „Messe in Essen“, „45127 Essen“ – zählt nicht). Passt ein Termin nur zur Uhrzeit (z. B. „Zahnarzt“), gibt es eine Nachfrage. Namen dürfen leicht abweichen: Tippfehler („Domhoff“) und Abkürzungen („Rest. Domh.“) treffen auch |
 | Übernachtung | ein Termin rund um das Rechnungsdatum (bis 1 Tag davor) Hotel oder Stadt nennt, **oder** genau eine mehrtägige Reise über das Datum läuft |
 
 - Gefunden: Die App zeigt den Termin und schlägt dessen **Teilnehmer** als „bewirtete Personen“ vor.
@@ -305,6 +307,12 @@ Betrag oder Datum zwischen den Varianten unterscheiden.
 Gespeichert wird beim Testlauf **nichts**. Höchstens 15 Belege pro Lauf, 4 parallel. Die neue Kategorie
 und ihre Konten gelten nur innerhalb des Probelaufs – gleichzeitige echte Analysen merken davon nichts.
 
+**Musterlösungen schaffen:** Der Knopf **„Beispielbelege zum Prüfen in „Belege“ legen“** im selben Fenster
+analysiert die ersten 15 Beispielbelege des Ordners einmal ganz normal (aktuelles Kategorie-Wissen) und legt
+sie im Tab „Belege“ ab – Belege, die dort schon liegen, werden übersprungen; kaputte Dateien werden genannt,
+halten die anderen aber nicht auf. Wer sie dort prüft, bekommt beim nächsten Probelauf den Feldvergleich.
+Kosten wie beim normalen Hochladen. Gespeichert mit `herkunft: "beispielordner"`.
+
 ## 10. Prüfung und Messung
 
 Datei: `App.py`
@@ -353,6 +361,24 @@ werden:
   der ersten richtig, Endergebnis falsch); „Nur Original richtig“ bzw. „Nur Kontrast richtig“.
 - **Endergebnis je Belegtyp** (Foto/PDF, ein-/mehrseitig).
 - Ab 10 Belegen **Hinweise**, z. B. schwächste Feldart, Schiedsrichter ohne Nutzen, Kontrast-Lesung ohne Nutzen.
+
+### Wann hilft der Schiedsrichter? (Tab „Auswertung“, unter Lesequalität)
+
+Datei: `lesequalitaet.py` (`schiedsrichter_wirkung`), Anzeige `App.py` (`_zeige_schiedsrichter_wirkung`)
+
+Für **jeden** Beleg, bei dem der Schiedsrichter gelesen hat (auch ungeprüfte), rechnet die App aus den
+gespeicherten ersten Lesungen nach, **warum** er gerufen wurde (Auslöser: „Lesungen wichen ab“, „Eine Lesung
+fehlgeschlagen“ oder die Art des Nachfragegrunds, z. B. „Rechenprüfung“, „Belegart unsicher“), und zählt je
+Auslöser:
+
+- **Grund danach weg** – Abweichung geklärt (Schiedsrichter stimmt einer der ersten Lesungen zu) bzw. der
+  Nachfragegrund trat bei seiner Lesung nicht mehr auf;
+- **Etwas anders gelesen** – seine Vergleichswerte unterscheiden sich von Lesung 1;
+- bei geprüften Belegen: **Felder besser / schlechter** – er richtig und Lesung 1 falsch bzw. umgekehrt.
+
+Ein Beleg kann mehrere Auslöser haben. Hat der Schiedsrichter bei einem Auslöser in mindestens 5 Fällen nie
+etwas aufgelöst oder anders gelesen, erscheint der Hinweis „Kandidat, ihn dort zu überspringen“. Gerechnet
+wird mit den heutigen Prüfregeln (z. B. zählt eine abweichende Uhrzeit auch bei älteren Belegen).
 
 Kein Modellaufruf. Grundlage für Entscheidungen wie Bildaufbereitung verbessern, eine Lesung weglassen oder
 ein spezielles Texterkennungs-Modell (OCR) als zusätzliche Gegenprobe für bestimmte Felder einsetzen.

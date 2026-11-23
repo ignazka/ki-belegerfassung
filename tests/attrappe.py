@@ -103,9 +103,13 @@ def einsetzen() -> None:
     storage.beleg_speichern = lambda daten, name, sha: f"belege/{name}"
     storage.beleg_laden = lambda pfad: bild_png()
     storage.kategorie_dokument_ablegen = lambda name, text: "test-doc"
-    storage.anlage_ordner = lambda: []
-    storage.beispielbelege = lambda ordner: []
-    storage.beispielbeleg_laden = _gesperrt
+    # Beispielordner vortäuschen: KI["beispiele"] = {ordner: [(name, bytes, mime), …]}
+    beispiele = KI.get("beispiele") or {}
+    storage.anlage_ordner = lambda: list(beispiele)
+    storage.beispielbelege = lambda ordner: [{"name": n, "mime": m, "ref": f"{ordner}/{n}"}
+                                             for n, _d, m in beispiele.get(ordner, [])]
+    storage.beispielbeleg_laden = lambda ref: next(d for o, liste in beispiele.items() for n, d, _m in liste
+                                                   if f"{o}/{n}" == ref)
     storage.beispielbeleg_hochladen = _gesperrt
     storage.kalender_abgleichen = lambda a: Abgleich(status="nicht_eingerichtet")
     _kalender_einsetzen(storage)
@@ -140,8 +144,23 @@ def einsetzen() -> None:
     else:
         st.file_uploader = _ORIG_UPLOADER
 
+    # AppTest kann ein offenes Fenster (st.dialog) nicht einzeln neu aufbauen, der Browser schon. Wo die App
+    # st.rerun(scope="fragment") außerhalb eines Fragment-Durchlaufs aufruft, im Test die ganze Seite neu bauen.
+    from streamlit.errors import StreamlitInvalidLayoutContextError
+    global _ORIG_RERUN
+    if _ORIG_RERUN is None:
+        _ORIG_RERUN = st.rerun
+
+    def rerun(*, scope="app"):
+        try:
+            return _ORIG_RERUN(scope=scope)
+        except StreamlitInvalidLayoutContextError:
+            return _ORIG_RERUN(scope="app")
+    st.rerun = rerun
+
 
 _ORIG_UPLOADER = None
+_ORIG_RERUN = None
 
 
 def _kalender_einsetzen(storage) -> None:

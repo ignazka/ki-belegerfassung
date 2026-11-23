@@ -49,7 +49,8 @@ Tabs (in `App.py`):
    ordnet Korrekturen Ursachen zu und schlägt Ergänzungen für Kategorien vor; Übernahme nur als
    ungespeicherte Änderung im Kategorien-Tab (Mensch prüft, testet, speichert).
    Dazu **„Lesequalität“** (`lesequalitaet.py`): welche Lesung je Feld richtig lag – Grundlage für die
-   Entscheidung über ein zusätzliches OCR-Modell (Plan: Stufe 2, Vergleichsskript mit lokalem OCR).
+   Entscheidung über ein zusätzliches OCR-Modell (Plan: Stufe 2, Vergleichsskript mit lokalem OCR) – und
+   **„Wann hilft der Schiedsrichter?“** (je Auslöser: aufgelöst / anders gelesen / besser–schlechter).
 
 **Einführung:** startet beim allerersten Öffnen in einem Browser automatisch (Merker
 `praktikantai_tour_gesehen` im localStorage) und jederzeit über „Einführung starten“ in der Seitenleiste. Tour (driver.js 1.3.1 per CDN,
@@ -102,7 +103,7 @@ pro Datei-Hash gilt der **jüngste** Eintrag.
 | Unterordner | Inhalt |
 |---|---|
 | `belege/` | Originaldateien |
-| `analysen/` | jede Analyse (Ergebnis, Lesungen, Nachfragegründe `gruende`) – seit 2026-11-18 |
+| `analysen/` | jede Analyse (Ergebnis, Lesungen, Nachfragegründe `gruende`, ggf. `herkunft: "beispielordner"`) – seit 2026-11-18 |
 | `nachfragen/` | ältere Nachfragen (vor `analysen/`), nur noch gelesen |
 | `feedback/` | jede menschliche Prüfung: `kategorie {modell, korrekt, richtig}`, `felder{key: {modell, korrekt, richtig}}`, `kommentar`, `quelle` (`nachfrage`/`pruefung`/fehlt = altes Feedback), ggf. `korrektur_von`, `kommentar_vorher` |
 | `entscheidungen/` | Entscheidungen der ersten Nachfragen-Version, nur noch gelesen |
@@ -172,8 +173,10 @@ Kurzfristig:
 - **Verbesserungsrunden:** Prüfungen sammeln (ab ca. 20–30 Korrekturen), „Aus Korrekturen lernen“
   ausführen, Vorschläge im Kategorien-Tab testen und übernehmen; Wirkung über die Prompt-Version in der
   Auswertung vergleichen.
-- Optional angeboten, nicht umgesetzt: „Beleg entfernen“ für versehentliche Uploads; Schiedsrichter bei
-  rein fachlichen Nachfragegründen überspringen.
+- Optional angeboten, nicht umgesetzt: „Beleg entfernen“ für versehentliche Uploads.
+- **Schiedsrichter gezielt überspringen:** sobald „Wann hilft der Schiedsrichter?“ (Auswertung) für einen
+  Auslöser genug Fälle ohne Wirkung zeigt, ihn dort in `pipeline.beleg_lesen` auslassen (wie schon bei rein
+  fachlichen Gründen).
 
 Danach (Roadmap):
 1. Bewirtungsbeleg (Google-Doc „Bewirtungsbeleg“) aus den abgelesenen Daten + Kalender (Teilnehmer, Anlass)

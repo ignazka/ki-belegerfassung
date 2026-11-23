@@ -415,7 +415,7 @@ def _lesungen_protokoll(erg) -> list[dict]:
              "analyse": l.analyse.model_dump() if l.analyse else None} for l in erg["lesungen"]]
 
 
-def _beleg_ablegen(erg) -> str:
+def _beleg_ablegen(erg, herkunft: str | None = None) -> str:
     """Jeden analysierten Beleg ablegen (Original + Ergebnis) – damit er im Tab „Belege“ geprüft werden kann."""
     analyse = erg["analyse"]
     try:
@@ -437,6 +437,7 @@ def _beleg_ablegen(erg) -> str:
             "prompt_version": erg["prompt_version"],
             "dauer_s": erg["dauer_s"],
             "benutzer_email": aktueller_benutzer(),
+            **({"herkunft": herkunft} if herkunft else {}),  # "beispielordner"; fehlt = normaler Upload
         })
     except Exception as e:
         return f"Ablegen fehlgeschlagen: {e}"
@@ -855,6 +856,7 @@ def zeige_auswertung():
 
     st.divider()
     _zeige_lesequalitaet(eintraege)
+    _zeige_schiedsrichter_wirkung()
     st.divider()
     _aus_korrekturen_lernen(eintraege)
 
@@ -964,6 +966,39 @@ def _zeige_lesequalitaet(eintraege: list[dict]) -> None:
             f"{typ} {_lq_zelle(z)}" for typ, z in sorted(erg["je_typ"].items())))
     for hinweis in _lq_hinweise(erg):
         st.info(hinweis, icon=":material/lightbulb:")
+
+
+def _zeige_schiedsrichter_wirkung() -> None:
+    """Wann hilft der Schiedsrichter? Je Auslöser: aufgelöst, geändert, laut Prüfung besser/schlechter."""
+    st.markdown("**Wann hilft der Schiedsrichter?**")
+    st.caption(
+        "Das große Modell liest nach, wenn die ersten beiden Lesungen abweichen oder ein Nachfragegrund vorliegt. "
+        "Hier steht je Auslöser, wie oft es danach den Grund aufgelöst oder überhaupt etwas anders gelesen hat – "
+        "über alle Belege, auch ungeprüfte. Bei geprüften Belegen zählt zusätzlich, ob seine Änderungen richtig "
+        "waren. Ein Beleg kann mehrere Auslöser haben. Ändert es bei einem Auslöser nie etwas, kann man ihn dort "
+        "überspringen und spart Zeit und Kosten."
+    )
+    try:
+        belege = [{"lesungen": (b.get("analyse_eintrag") or {}).get("lesungen"), "bewertung": b.get("bewertung")}
+                  for b in _alle_belege()]
+    except Exception as ex:
+        st.error(f"Belege konnten nicht geladen werden: {ex}")
+        return
+    wirkung = lesequalitaet.schiedsrichter_wirkung(belege)
+    if not wirkung:
+        st.info("Der Schiedsrichter hat bisher bei keinem Beleg mit gespeicherten Lesungen gelesen.")
+        return
+    _tabelle([{
+        "Auslöser": ausloeser,
+        "Einsätze": z["einsaetze"],
+        "Grund danach weg": f"{z['aufgeloest']} von {z['einsaetze']}",
+        "Etwas anders gelesen": f"{z['geaendert']} von {z['einsaetze']}",
+        "Geprüft: Felder besser / schlechter": (f"{z['besser']} / {z['schlechter']} (bei {z['geprueft']} Belegen)"
+                                               if z["geprueft"] else "–"),
+    } for ausloeser, z in sorted(wirkung.items(), key=lambda x: -x[1]["einsaetze"])])
+    for ausloeser in lesequalitaet.ueberspringen_kandidaten(wirkung):
+        st.info(f"Bei „{ausloeser}“ hat der Schiedsrichter in {wirkung[ausloeser]['einsaetze']} Fällen nie etwas "
+                "aufgelöst oder anders gelesen – Kandidat, ihn dort zu überspringen.", icon=":material/lightbulb:")
 
 
 # ---------------------------------------------------------------------------
@@ -1926,6 +1961,25 @@ def _zeige_testlauf(wahl: str, k: dict, praefix: str) -> None:
                     f"{len(neue)} Beleg(e) in „{ordnername}“ abgelegt.")
                 st.rerun(scope="fragment")  # nur das Fenster neu aufbauen, nicht schließen
 
+    # Musterlösungen schaffen: Beispielbelege einmal normal analysieren und im Tab „Belege“ zur Prüfung ablegen
+    ablage_ok = st.session_state.pop(f"{praefix}_beispiele_ok", None)
+    if ablage_ok:
+        (st.warning if "Nicht möglich" in ablage_ok else st.success)(ablage_ok, icon=":material/fact_check:")
+    _lauf_meldung("beispiele_ablegen")
+    if _lauf_knopf(
+        "Beispielbelege zum Prüfen in „Belege“ legen", "beispiele_ablegen", scope="fragment",
+        icon=":material/fact_check:", width="stretch", disabled=not belege,
+        help=f"Analysiert die ersten {MAX_TESTBELEGE} Beispielbelege dieses Ordners einmal ganz normal und legt sie "
+             "im Tab „Belege“ ab (Belege, die dort schon liegen, werden übersprungen). Wer sie dort prüft, schafft "
+             "Musterlösungen: Dann zählt der Probelauf auch, ob Beträge, Datum und Konto richtig gelesen wurden. "
+             "Kosten wie beim Hochladen.",
+    ):
+        try:
+            st.session_state[f"{praefix}_beispiele_ok"] = _beispiele_ablegen(belege[:MAX_TESTBELEGE])
+        except Exception as e:  # z. B. Drive nicht erreichbar
+            st.session_state["meldung_beispiele_ablegen"] = f"Ablegen fehlgeschlagen: {e}"
+        st.rerun(scope="fragment")
+
     if starten:
         schluessel = wahl if wahl != _NEU else kat_schluessel(name)
         entwurf = {**KAT_STAND, schluessel: {**KAT_STAND.get(schluessel, {}),
@@ -1961,6 +2015,40 @@ def _zeige_testlauf(wahl: str, k: dict, praefix: str) -> None:
 
 
 _VARIANTE_TITEL = {"vorher": "Bisherige Beschreibung", "nachher": "Neue Beschreibung"}
+
+
+def _beispiele_ablegen(belege: list[dict]) -> str:
+    """Beispielbelege, die noch nicht in der Ablage liegen, analysieren und ablegen -> Meldung für die Anzeige.
+    Ein Fehler bei einem Beleg (z. B. Datei kaputt) hält die anderen nicht auf."""
+    vorhanden = {b["sha"] for b in _alle_belege()}
+    dateien = [[(b["name"], beispielbeleg_laden(b["ref"]), b["mime"])] for b in belege]
+    offen = [d for d in dateien if beleg_hash(d) not in vorhanden]
+    with ThreadPoolExecutor(max_workers=STAPEL_PARALLEL) as pool:
+        ergebnisse = list(pool.map(lambda d: _sicher(_beleg_verarbeiten, d), offen))
+    neu, fehler = 0, []
+    for datei, erg in zip(offen, ergebnisse):  # Ablage im Hauptthread (Drive-Zugriffe)
+        status = erg if isinstance(erg, Exception) else _beleg_ablegen(erg, herkunft="beispielordner")
+        if status == "abgelegt":
+            neu += 1
+        else:
+            fehler.append(f"{datei[0][0]} ({status})")
+    _LAUF_CACHE.pop("belege", None)  # neue Belege sofort sichtbar
+    teile = []
+    if neu:
+        teile.append(f"{neu} Beispielbeleg(e) analysiert und im Tab „Belege“ abgelegt – dort prüfen.")
+    if len(dateien) - len(offen):
+        teile.append(f"{len(dateien) - len(offen)} lag(en) schon dort.")
+    if fehler:
+        teile.append("Nicht möglich: " + "; ".join(fehler))
+    return " ".join(teile)
+
+
+def _sicher(funktion, *args):
+    """Für Threads: Ausnahme als Ergebnis zurückgeben statt den ganzen Lauf abzubrechen."""
+    try:
+        return funktion(*args)
+    except Exception as e:
+        return e
 
 
 def _musterloesungen(daten: list[tuple[str, bytes, str]]) -> dict[str, dict]:

@@ -159,6 +159,8 @@ so wirken auch noch nicht gespeicherte Ausnahmen. Ein anderes Konto zählt in de
 Kategorien und Konten des Probelaufs setzt `beleg_schema.sonderstand` (ContextVar) nur für die eigenen
 Threads; `pipeline.beleg_lesen` reicht den Kontext per `copy_context()` an seine Lese-Threads weiter. Die
 globalen `KATEGORIEN`/`KONTEN` (und damit echte Analysen anderer Sitzungen) bleiben unberührt.
+**Musterlösungen schaffen:** `App._beispiele_ablegen` (Knopf im Probelauf-Fenster) analysiert noch nicht
+abgelegte Beispielbelege mit `_beleg_verarbeiten` (3 parallel) und legt sie mit `herkunft: "beispielordner"` ab.
 **Musterlösung:** `App._musterloesungen` sucht zu jedem Beispielbeleg (Datei-Hash) eine Prüfung aus dem Tab
 „Belege“; `testlauf.felder_vergleichen` zählt dann richtig gelesene Felder (`werte_gleich` wie in der
 Auswertung), `erwartet_fuer` nimmt deren Belegart als Erwartung.
@@ -170,6 +172,11 @@ Auswertung), `erwartet_fuer` nimmt deren Belegart als Erwartung.
 - **Lesequalität** (`lesequalitaet.py`): jede gespeicherte Lesung (Original, Kontrast, Schiedsrichter) wird
   Feld für Feld mit dem richtigen Wert verglichen → wo wird falsch gelesen, bringen zweite Lesung und
   Schiedsrichter etwas?
+- **Wann hilft der Schiedsrichter?** (`lesequalitaet.schiedsrichter_wirkung`): über alle Belege mit
+  Schiedsrichter-Lesung; Auslöser aus den ersten Lesungen nachgerechnet (`checks.nachfragen_gruende`,
+  `abweichungen`, `grund_art`), je Auslöser: aufgelöst, anders gelesen, laut Prüfung besser/schlechter.
+  `ueberspringen_kandidaten` nennt Auslöser mit ≥ 5 Einsätzen ohne jede Wirkung – Grundlage, um den
+  Schiedsrichter dort in `pipeline.beleg_lesen` zu überspringen (noch nicht umgesetzt, erst Daten sammeln).
 
 ### 5.4 Aus Korrekturen lernen
 
@@ -243,7 +250,8 @@ Lokal stattdessen eine Zeile je Eintrag in `<art>.jsonl` (Rechte 0700/0600).
                 {"variante": "kontrast", …}, {"variante": "hochaufgelöst", …} ],
   "rohantwort": "…", "schiedsrichter": true, "kalender": { … },
   "modell": "qwen/qwen3-vl-235b-a22b-instruct", "prompt_version": "2026-11-17.5+k3af32b",
-  "dauer_s": 41.2, "benutzer_email": "…"
+  "dauer_s": 41.2, "benutzer_email": "…",
+  "herkunft": "beispielordner"   // nur bei Belegen aus dem Probelauf-Knopf; fehlt = normaler Upload
 }
 ```
 

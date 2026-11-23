@@ -178,3 +178,37 @@ def test_probelauf_mit_musterloesung():
     zellen = _zellen(at)
     assert any("falsch: Datum" in z for z in zellen) and "anders" in zellen
     assert any("Eher nicht speichern" in w.value for w in at.warning)
+
+
+def test_beispielbelege_zum_pruefen_ablegen():
+    """Knopf im Probelauf-Fenster: Beispielbelege einmal analysieren und im Tab „Belege“ ablegen (Musterlösung)."""
+    import io
+
+    from PIL import Image
+    puffer = io.BytesIO()
+    Image.new("RGB", (300, 200), "gray").save(puffer, "PNG")
+    beispiele = {"Übernachtung": [("hotel1.png", A.bild_png(), "image/png"), ("hotel2.png", puffer.getvalue(),
+                                  "image/png"), ("kaputt.png", b"kein bild", "image/png")]}
+    at = A.app(ki={"beispiele": beispiele})
+    at.selectbox(key="kategorie_wahl").set_value("uebernachtung").run()
+
+    def ablegen_klicken():
+        A.knopf(at, "Testen").click().run()  # Fenster öffnen: Knopf ist da
+        assert any(b.key == "laufknopf_beispiele_ablegen" for b in at.button)
+        # Ein Klick im Fenster löst in AppTest einen kompletten Neuaufbau aus, bei dem das Fenster zu ist – der
+        # Klick käme nie an. Im Browser setzt der Klick den Merker und baut nur das Fenster neu; das hier
+        # nachgestellt: Merker setzen, Fenster öffnen -> Vorgang läuft; noch einmal öffnen -> Ergebnis-Meldung.
+        at.session_state["laeuft_beispiele_ablegen"] = True
+        A.knopf(at, "Testen").click().run()
+        A.knopf(at, "Testen").click().run()
+        A.keine_fehler(at)
+
+    ablegen_klicken()
+    abgelegt = A.SPEICHER["analysen"]
+    assert len(abgelegt) == 2 and all(e["herkunft"] == "beispielordner" for e in abgelegt), abgelegt
+    meldung = " ".join(w.value for w in at.warning)
+    assert "2 Beispielbeleg(e) analysiert" in meldung and "Nicht möglich: kaputt.png" in meldung, meldung
+    ablegen_klicken()  # zweites Mal: die beiden liegen schon da -> nichts doppelt (der kaputte scheitert erneut)
+    assert len(A.SPEICHER["analysen"]) == 2
+    meldung = " ".join(w.value for w in at.warning)
+    assert "2 lag(en) schon dort" in meldung and "analysiert" not in meldung, meldung
