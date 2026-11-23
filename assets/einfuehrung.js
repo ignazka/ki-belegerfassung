@@ -61,13 +61,20 @@
       text: "Der Probelauf liest Beispielbelege einmal mit der alten und einmal mit der neuen Beschreibung. So " +
             "siehst du <i>vor</i> dem Speichern, ob deine Änderung die Erkennung verbessert – auch, welches " +
             "Konto jeder Beleg bekommt. So prüft ihr neue Konto-Ausnahmen an echten Belegen. Die Beispielbelege " +
-            "liegen in Google Drive im Ordner „Anlage KI Assistent“ – je Ausnahme ein paar passende dazulegen." },
+            "liegen in Google Drive im Ordner „Anlage KI Assistent“ – je Ausnahme ein paar passende dazulegen. " +
+            "Im Fenster legt „Beispielbelege zum Prüfen in „Belege“ legen“ sie einmal zur Prüfung ab – danach " +
+            "zählt der Probelauf auch, ob Beträge und Datum stimmen." },
     { tab: 3,
       ziel: () => { const m = ersterSichtbarer('[data-testid="stMetric"]');
                     return m ? m.closest('[data-testid="stHorizontalBlock"]') : null; },
       titel: "Wie gut ist die KI?",
       text: "Die Auswertung zählt alle geprüften Belege: Wie oft war die Belegart richtig, wie oft alle Werte, " +
             "wie viele Nachfragen waren unnötig. So seht ihr, ob Änderungen wirklich helfen." },
+    { tab: 3, ziel: () => ersterSichtbarer(".st-key-schiedsrichter_wirkung"), titel: "Wann hilft das große Modell?",
+      text: "Sind sich die zwei ersten Lesungen nicht einig oder gibt es einen Grund zur Nachfrage, liest ein " +
+            "größeres Modell genauer nach – das kostet Zeit und Geld. Diese Tabelle zeigt je Anlass, wie oft es " +
+            "danach wirklich etwas geklärt oder anders gelesen hat. Bringt es bei einem Anlass nie etwas, " +
+            "schlägt die App vor, es dort wegzulassen." },
     { tab: 3, ziel: () => knopfMitText("Verbesserungsvorschläge"), titel: "Aus Korrekturen lernen",
       text: "Sind genug Korrekturen gesammelt, sucht die KI hier nach Mustern und schlägt Ergänzungen für die " +
             "Kategorien vor. Übernommen wird nur, was ihr prüft und speichert." },
@@ -127,6 +134,9 @@
         },
       });
       navigiert = false;
+      // Große Tabellen weiter oben werden manchmal erst danach fertig gezeichnet und verschieben die Seite –
+      // dann Markierung und Popup kurz darauf neu ausrichten.
+      setTimeout(() => { if (tour.isActive()) tour.refresh(); }, 800);
     }
     function gehe(i) {
       if (i >= n) { tour.destroy(); return; }

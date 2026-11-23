@@ -969,7 +969,13 @@ def _zeige_lesequalitaet(eintraege: list[dict]) -> None:
 
 
 def _zeige_schiedsrichter_wirkung() -> None:
-    """Wann hilft der Schiedsrichter? Je Auslöser: aufgelöst, geändert, laut Prüfung besser/schlechter."""
+    """Wann hilft der Schiedsrichter? Je Auslöser: aufgelöst, geändert, laut Prüfung besser/schlechter.
+    Container-key „schiedsrichter_wirkung“ ist Ziel eines Tour-Schritts (assets/einfuehrung.js)."""
+    with st.container(key="schiedsrichter_wirkung"):
+        _schiedsrichter_wirkung_inhalt()
+
+
+def _schiedsrichter_wirkung_inhalt() -> None:
     st.markdown("**Wann hilft der Schiedsrichter?**")
     st.caption(
         "Das große Modell liest nach, wenn die ersten beiden Lesungen abweichen oder ein Nachfragegrund vorliegt. "

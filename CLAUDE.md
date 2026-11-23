@@ -56,7 +56,8 @@ Tabs (in `App.py`):
 `praktikantai_tour_gesehen` im localStorage) und jederzeit über „Einführung starten“ in der Seitenleiste. Tour (driver.js 1.3.1 per CDN,
 `einfuehrung.py` + `assets/einfuehrung.js`). Neue oder umbenannte Bereiche dort nachziehen. Eigenheiten:
 Tabs werden über ihre Position gewählt und per Zeiger-Ereignissen geöffnet; jeder Schritt wird mit
-`highlight()` einzeln gezeigt, weil Ziele in unsichtbaren Tabs erst nach dem Wechsel existieren; im
+`highlight()` einzeln gezeigt, weil Ziele in unsichtbaren Tabs erst nach dem Wechsel existieren (0,8 s später
+`refresh()`, weil große Tabellen die Seite noch verschieben können); im
 Skript jedes `<` vor Buchstaben als `<` maskieren (sonst entfernt Streamlits HTML-Filter das `<script>`).
 
 **Belegansicht** (`_beleg_vorschau`): die aktuelle Seite groß neben dem Formular (Belegspalte so hoch wie

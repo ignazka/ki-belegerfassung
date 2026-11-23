@@ -51,7 +51,9 @@ try {
   const protokoll = [];
   for (let schritt = 0; schritt < 20; schritt++) {
     await warte(900);
-    const m = await js(messen);
+    // Tab-Wechsel mit echten Daten (z. B. Kategorien) kann länger dauern – kurz fehlendes Popup abwarten
+    let m = await js(messen);
+    for (let n = 0; n < 15 && !m; n++) { await warte(700); m = await js(messen); }
     if (!m) break;
     protokoll.push(m);
     if ([0, 3, 6, 8, 9].includes(schritt)) {
