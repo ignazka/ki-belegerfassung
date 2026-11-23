@@ -281,10 +281,20 @@ lauf = {
     "b.pdf": {"vorher": Ergebnis("parken", True, ["y"], "–", "–"),
               "nachher": Ergebnis(None, True, [], "", "", "Timeout")},
 }
+_ohne_muster = {"mit_muster": 0, "felder_richtig": 0, "felder_geprueft": 0}
 assert zusammenfassung(lauf, "vorher", {"parken"}) == {"belege": 2, "erkannt": 1, "nachfragen": 2, "fehler": 0,
-                                                    "konten": {}}
+                                                    "konten": {}, **_ohne_muster}
 assert zusammenfassung(lauf, "nachher", {"parken"}) == {"belege": 2, "erkannt": 1, "nachfragen": 1, "fehler": 1,
-                                                     "konten": {}}
+                                                     "konten": {}, **_ohne_muster}
+# Musterlösung (Beleg schon in der App geprüft): ihre Belegart zählt, und die Felder werden verglichen
+from testlauf import felder_vergleichen  # noqa: E402
+
+muster = {"a.pdf": {"kategorie": "sonstiger_beleg", "felder": {"brutto": 3.0, "datum": "2026-01-02"}}}
+lauf["a.pdf"]["nachher"].werte = {"brutto": "3,00", "datum": "2026-01-01"}
+assert felder_vergleichen(lauf["a.pdf"]["nachher"], muster["a.pdf"]) == (1, 2, ["Datum (TT.MM.JJJJ)"])
+z = zusammenfassung(lauf, "nachher", {"parken"}, muster)
+assert (z["erkannt"], z["mit_muster"], z["felder_richtig"], z["felder_geprueft"]) == (0, 1, 1, 2), z
+assert zusammenfassung(lauf, "vorher", {"parken"}, muster)["erkannt"] == 2  # a.pdf laut Muster „sonstiger“
 
 # Profilbild in der Seitenleiste (Google-Avatar, sonst Initialen; Namen werden HTML-sicher eingesetzt)
 from auth import benutzer_karte  # noqa: E402

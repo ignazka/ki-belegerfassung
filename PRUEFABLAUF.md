@@ -117,7 +117,7 @@ Ein falsch gelesener Betrag passt fast nie zu den anderen Zahlen auf dem Beleg. 
 | Jeder Steuersatz nur einmal | – | doppelt oder erfunden gelesene Zeile |
 | EC-Betrag ≥ Rechnung | 2 Cent | falscher EC-Beleg, Teilzahlung |
 | Trinkgeld ≤ 30 % der Rechnung | – | EC-Beleg gehört zu einer anderen Rechnung |
-| Datum nicht in der Zukunft | – | falsch gelesenes Datum |
+| Datum nicht in der Zukunft (deutsche Zeit) | – | falsch gelesenes Datum |
 
 **Warum ein paar Cent Toleranz?** Viele Kassen runden die MwSt. pro Position und nicht auf die Summe.
 Dadurch weicht die Summe der Steuern um 1 bis 2 Cent vom „idealen“ Wert ab, obwohl der Beleg korrekt ist.
@@ -152,7 +152,9 @@ Steuersatz/Datum/Betrag – geht im Zweifel weiter an den Schiedsrichter.
 
 Er liest in **höherer Auflösung** (2800 Pixel, PDFs mit 220 dpi), damit kleine Kassenbon-Schrift besser
 lesbar ist. **Sein Ergebnis gilt.** Ein abweichendes Feld gilt als geklärt, wenn der Schiedsrichter einer
-der beiden ersten Lesungen zustimmt. Danach laufen alle Prüfungen erneut.
+der beiden ersten Lesungen zustimmt. Danach laufen alle Prüfungen erneut. Konnten beide ersten Lesungen
+nichts liefern und nur der Schiedsrichter liest, fehlt die Gegenprobe – dann geht der Beleg mit dem Grund
+„Nur das große Modell konnte den Beleg lesen – ohne Gegenprobe“ zur Nachfrage.
 
 | Umgebung | Schiedsrichter |
 |---|---|
@@ -289,11 +291,19 @@ Jeder Beispielbeleg wird zweimal komplett analysiert (doppelt lesen, Prüfungen,
 - **nachher**: mit dem Stand im Formular, auch wenn er noch nicht gespeichert ist
 
 Ergebnis pro Variante („Bisherige Beschreibung“ / „Neue Beschreibung“): Wie viele Belege wurden als diese
-Kategorie erkannt? (Bewirtungs-Unterarten zählen gegenseitig.) Wie viele müssten nachgefragt werden? Dazu
-ein **Fazit in einem Satz** („Die Änderung hilft“ / „Eher nicht speichern“ / „Kein Unterschied“; richtig
-erkennen zählt mehr als wenige Rückfragen) und eine Tabelle pro Beleg: grün = sicher, rot = Nachfrage,
-grau = Datei nicht lesbar.
-Gespeichert wird beim Testlauf **nichts**. Höchstens 15 Belege pro Lauf, 4 parallel.
+Kategorie erkannt? (Bewirtungs-Unterarten zählen gegenseitig.) Wie viele müssten nachgefragt werden?
+
+**Musterlösung:** Wurde ein Beispielbeleg (dieselbe Datei) schon im Tab „Belege“ geprüft, gilt diese Prüfung
+als Musterlösung: Dann zählt ihre Belegart statt der des Ordners, und die Felder (Beträge, Datum, Konto …)
+werden verglichen – „Felder richtig gelesen: x von y“, in der Tabelle „falsch: …“. Ohne geprüfte Belege
+weist ein Hinweis darauf hin, dass nur die Belegart zählt.
+
+Dazu ein **Fazit in einem Satz** („Die Änderung hilft“ / „Eher nicht speichern“ / „Kein Unterschied“;
+Reihenfolge: richtig erkennen vor richtig lesen vor wenigen Rückfragen) und eine Tabelle pro Beleg:
+grün = sicher, rot = Nachfrage, grau = Datei nicht lesbar; „anders“, wenn sich Belegart, Nachfrage, Konto,
+Betrag oder Datum zwischen den Varianten unterscheiden.
+Gespeichert wird beim Testlauf **nichts**. Höchstens 15 Belege pro Lauf, 4 parallel. Die neue Kategorie
+und ihre Konten gelten nur innerhalb des Probelaufs – gleichzeitige echte Analysen merken davon nichts.
 
 ## 10. Prüfung und Messung
 

@@ -1,6 +1,8 @@
 """Datenmodell für die Beleg-Analyse: Kategorien, Felder, Validierung und Normalisierung."""
 
 import re
+from contextlib import contextmanager
+from contextvars import ContextVar
 from datetime import date, datetime
 from decimal import ROUND_HALF_UP, Decimal
 
@@ -40,6 +42,31 @@ KONTEN: dict[str, dict] = {}
 def konten_registrieren(konten: dict[str, dict]) -> None:
     KONTEN.clear()
     KONTEN.update(konten)
+
+
+# Probelauf: abweichende Kategorien/Konten NUR für den laufenden Vorgang (nicht für andere Sitzungen).
+# ContextVar statt globaler Änderung; pipeline.beleg_lesen reicht den Kontext an seine Lese-Threads weiter.
+_SONDERSTAND: ContextVar[tuple[dict, dict] | None] = ContextVar("kategorien_sonderstand", default=None)
+
+
+@contextmanager
+def sonderstand(kategorien: dict[str, str], konten: dict[str, dict]):
+    """Innerhalb des with-Blocks gelten diese Kategorien ({schluessel: Name}, Standard immer dabei) und Konten."""
+    token = _SONDERSTAND.set(({**kategorien, **STANDARD_KATEGORIEN}, konten))
+    try:
+        yield
+    finally:
+        _SONDERSTAND.reset(token)
+
+
+def gueltige_kategorien() -> dict[str, str]:
+    sonder = _SONDERSTAND.get()
+    return sonder[0] if sonder else KATEGORIEN
+
+
+def gueltige_konten() -> dict[str, dict]:
+    sonder = _SONDERSTAND.get()
+    return sonder[1] if sonder else KONTEN
 
 
 def konto_waehlen(konten: dict | None, ki_konto: str | None, unsicher: bool) -> tuple[str | None, bool]:
@@ -318,10 +345,11 @@ class BelegAnalyse(BaseModel):
     @classmethod
     def _kategorie(cls, v):
         s = str(v or "").strip().lower().replace("-", "_").replace(" ", "_")
-        if s in KATEGORIEN:
+        kategorien = gueltige_kategorien()
+        if s in kategorien:
             return s
         eingabe = str(v).strip().casefold()
-        for key, label in KATEGORIEN.items():  # Toleranz: Label statt Schlüssel, auch ohne "Bewirtung: "
+        for key, label in kategorien.items():  # Toleranz: Label statt Schlüssel, auch ohne "Bewirtung: "
             if eingabe in (label.casefold(), label.split(": ", 1)[-1].casefold()):
                 return key
         return "sonstiger_beleg"
@@ -407,8 +435,9 @@ class BelegAnalyse(BaseModel):
         return self
 
     def _konto_festlegen(self) -> None:
-        self.konto, self.konto_unsicher = konto_waehlen(KONTEN.get(self.kategorie), self.konto, self.konto_unsicher)
-        if not (KONTEN.get(self.kategorie) or {}).get("ausnahmen"):
+        regeln = gueltige_konten().get(self.kategorie)
+        self.konto, self.konto_unsicher = konto_waehlen(regeln, self.konto, self.konto_unsicher)
+        if not (regeln or {}).get("ausnahmen"):
             self.konto_grund = None  # ohne Ausnahmen hat die KI nichts zu begründen
 
     @staticmethod

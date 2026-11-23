@@ -156,6 +156,12 @@ erkannt wurde, wie viele Nachfragen, ein Fazit („Die Änderung hilft“ …). 
 Dazu das **Konto** je Beleg und Variante: Während des Laufs erlaubt `konten_vereinigen` alle Konten beider
 Varianten, danach wertet `beleg_schema.konto_waehlen` jede Lesung nach den Konto-Regeln ihrer Variante aus –
 so wirken auch noch nicht gespeicherte Ausnahmen. Ein anderes Konto zählt in der Spalte „Unterschied“.
+Kategorien und Konten des Probelaufs setzt `beleg_schema.sonderstand` (ContextVar) nur für die eigenen
+Threads; `pipeline.beleg_lesen` reicht den Kontext per `copy_context()` an seine Lese-Threads weiter. Die
+globalen `KATEGORIEN`/`KONTEN` (und damit echte Analysen anderer Sitzungen) bleiben unberührt.
+**Musterlösung:** `App._musterloesungen` sucht zu jedem Beispielbeleg (Datei-Hash) eine Prüfung aus dem Tab
+„Belege“; `testlauf.felder_vergleichen` zählt dann richtig gelesene Felder (`werte_gleich` wie in der
+Auswertung), `erwartet_fuer` nimmt deren Belegart als Erwartung.
 
 ### 5.3 Messen (Tab „Auswertung“)
 
@@ -362,7 +368,8 @@ Cloud unter Settings → Secrets). Lokal ohne Login entwickeln: `LOGIN_DEAKTIVIE
 - **Kein „Vertrauen“-Wert:** Vom LLM selbst geschätzte Werte sind nicht kalibriert. Stattdessen
   `kategorie_unsicher` + Begründung (ja/nein) und harte Prüfungen im Code.
 - **Nachfragen** werden direkt nach der Analyse abgelegt (unabhängig vom Feedback), einmal pro Datei-Hash.
-- **JSON-Parsing:** erst `response_format=json_object` (mit Fallback ohne), dann direkt parsen,
+- **JSON-Parsing:** erst `response_format=json_object` (Fallback ohne – nur wenn der Anbieter die Anfrage
+  ablehnt, also 400/422; Zeitüberschreitung und Überlastung wiederholt der OpenAI-Client selbst), dann direkt parsen,
   Codeblock oder erstes `{…}`. Danach tolerante Pydantic-Validierung.
 - **Vergleich im Feedback** (`werte_gleich`): Beträge auf 0,005 genau, `0,00` = leer;
   Text ohne Groß-/Kleinschreibung und doppelte Leerzeichen; Datum in mehreren Formaten.

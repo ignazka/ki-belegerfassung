@@ -139,3 +139,41 @@ def test_uhrzeit_abweichung_ruft_schiedsrichter(pipeline, monkeypatch):
     erg = pipeline.beleg_lesen([b"BILD"])
     assert "gross" in aufrufe and erg.abweichungen == {"Uhrzeit": ("18:30", "16:30")}
     assert erg.ungeklaert == [] and erg.analyse.uhrzeit == "18:30"
+
+
+def test_nur_grosses_modell_liest_mit_nachfrage(pipeline, monkeypatch):
+    fehler = RuntimeError("Zeitüberschreitung")
+    ki(pipeline, monkeypatch, fehler, fehler, gross=SAUBER)
+    erg = pipeline.beleg_lesen([b"BILD"])
+    assert erg.modell == pipeline.MODEL_GROSS
+    assert any("ohne Gegenprobe" in g for g in erg.gruende)  # niemand hat gegengelesen -> Mensch schaut
+
+
+def test_modellaufruf_wiederholt_nur_bei_abgelehnter_anfrage(monkeypatch):
+    """Ohne JSON-Vorgabe erneut nur, wenn der Anbieter die Anfrage ablehnt – nicht bei Zeitüberschreitung."""
+    import openai
+
+    import extraction
+
+    def fehler_von(art):  # ohne Netzwerk-Objekte erzeugen; für das except zählt nur die Klasse
+        return art.__new__(art)
+
+    for fehler, erwartet in [(fehler_von(openai.BadRequestError), 2), (fehler_von(openai.APITimeoutError), 1)]:
+        aufrufe = []
+
+        def create(fehler=fehler, aufrufe=aufrufe, **kwargs):
+            aufrufe.append(kwargs)
+            if "response_format" in kwargs:
+                raise fehler
+            return "ok"
+
+        client = type("C", (), {})()
+        client.chat = type("Ch", (), {})()
+        client.chat.completions = type("Co", (), {"create": staticmethod(create)})()
+        monkeypatch.setattr(extraction, "get_client", lambda: client)
+        if erwartet == 2:
+            assert extraction._modell_aufrufen("x", "m") == "ok"
+        else:
+            with pytest.raises(openai.APITimeoutError):
+                extraction._modell_aufrufen("x", "m")
+        assert len(aufrufe) == erwartet

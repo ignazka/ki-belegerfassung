@@ -99,8 +99,8 @@ def test_probelauf_waehlt_konto_je_variante(monkeypatch):
 
     vorher = konten(_stand())            # nur Standardkonto
     nachher = konten(_stand(AUSNAHMEN))  # neue, noch nicht gespeicherte Ausnahme 6664
-    konten_registrieren(testlauf.konten_vereinigen(vorher, nachher))
-    assert KONTEN["restaurant_beleg"] == {"standard": None, "ausnahmen": ["6130", "6640", "6664"]}
+    assert testlauf.konten_vereinigen(vorher, nachher)["restaurant_beleg"] == {
+        "standard": None, "ausnahmen": ["6130", "6640", "6664"]}
 
     def lesen(*_a, **_k):  # die KI wählt in beiden Läufen die Ausnahme und ist unsicher
         a = BelegAnalyse.model_validate({"kategorie": "restaurant_beleg", "konto": "6664", "konto_unsicher": True,
@@ -114,3 +114,38 @@ def test_probelauf_waehlt_konto_je_variante(monkeypatch):
     assert (erg["vorher"].konto, erg["vorher"].konto_unsicher, erg["vorher"].nachfrage) == ("6640", False, False)
     assert (erg["nachher"].konto, erg["nachher"].konto_unsicher, erg["nachher"].nachfrage) == ("6664", True, True)
     assert testlauf.zusammenfassung({"a.png": erg}, "nachher", {"restaurant_beleg"})["konten"] == {"6664": 1}
+    assert KONTEN == {}  # die Probelauf-Konten waren nur im Lauf gültig, nicht global
+
+
+def test_probelauf_sonderstand_gilt_nur_im_lauf(monkeypatch):
+    """Neue Kategorie/Konten des Probelaufs: gültig in den Lese-Threads der Pipeline, aber nicht für andere
+    (gleichzeitige echte Analysen laufen ohne den Sonderstand)."""
+    import threading
+
+    import pipeline
+    import testlauf
+    from beleg_schema import gueltige_kategorien, sonderstand
+
+    gesehen = []
+
+    def analysieren(bilder, modell, system):  # läuft in pipeline.beleg_lesens eigenen Threads
+        a = BelegAnalyse.model_validate({"kategorie": "parken", "konto": "6570"})
+        gesehen.append((a.kategorie, a.konto))
+        return a, "{}", {}
+    monkeypatch.setattr(pipeline, "analysieren", analysieren)
+    monkeypatch.setattr(pipeline, "kontrast_variante", lambda b: b)
+    monkeypatch.setattr(testlauf, "dateien_zu_bildern", lambda d: ([b"x"], 1, 1))
+
+    neben = {}
+    with sonderstand({"parken": "Parken"}, {"parken": {"standard": "6570", "ausnahmen": []}}):
+        t = threading.Thread(target=lambda: neben.update(k=dict(gueltige_kategorien())))
+        t.start()
+        t.join()
+    assert "parken" not in neben["k"]  # anderer Thread (= andere Sitzung) sieht nichts
+
+    testlauf.ausfuehren([("a.png", b"", "image/png")], {"nachher": "p"},
+                        konten={"nachher": {"parken": {"standard": "6570", "ausnahmen": []}}},
+                        kategorien={"parken": "Parken"})
+    assert gesehen and all(g == ("parken", "6570") for g in gesehen), gesehen
+    assert "parken" not in gueltige_kategorien()  # danach wieder der normale Stand
+    assert BelegAnalyse.model_validate({"kategorie": "parken"}).kategorie == "sonstiger_beleg"

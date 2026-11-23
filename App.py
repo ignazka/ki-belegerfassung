@@ -19,7 +19,9 @@ from pipeline import beleg_lesen
 from kalender_verbindung import VerbindungsFehler, ist_kalender_state
 from testlauf import MAX_BELEGE as MAX_TESTBELEGE
 from testlauf import ausfuehren as testlauf_ausfuehren
-from testlauf import erwartete_kategorien, konten_vereinigen
+from testlauf import erwartet_fuer as testlauf_erwartet_fuer
+from testlauf import erwartete_kategorien
+from testlauf import felder_vergleichen as testlauf_felder_vergleichen
 from testlauf import zusammenfassung as testlauf_zusammenfassung
 from marke import APP_NAME, kopfzeile, thema_einbetten, thema_knopf
 from einfuehrung import belegansicht_einbetten, einfuehrung_ausfuehren, einfuehrung_knopf
@@ -1934,27 +1936,23 @@ def _zeige_testlauf(wahl: str, k: dict, praefix: str) -> None:
         if nachher == SYSTEM_PROMPT_AKTUELL:
             varianten = {"nachher": nachher}  # nichts geändert -> nur ein Durchlauf
         auswahl = belege[:MAX_TESTBELEGE]
-        kategorien_registrieren({**labels(KAT_STAND), schluessel: name})  # neue Kategorie für den Test gültig
-        # Konto-Regeln: jede Variante nach ihren eigenen (auch noch nicht gespeicherte Ausnahmen)
+        # Konto-Regeln: jede Variante nach ihren eigenen (auch noch nicht gespeicherte Ausnahmen).
+        # Neue Kategorie + Konten gelten nur im Probelauf, nicht für gleichzeitige echte Analysen.
         konten = {"vorher": kat_konten(KAT_STAND), "nachher": kat_konten(entwurf)}
-        konten_registrieren(konten_vereinigen(*konten.values()))
         balken = st.progress(0.0, text="Probelauf läuft …")
         try:
             daten = [(b["name"], beispielbeleg_laden(b["ref"]), b["mime"]) for b in auswahl]
             ergebnisse = testlauf_ausfuehren(
                 daten, varianten,
                 fortschritt=lambda f, g: balken.progress(f / g, text=f"Probelauf: {f} von {g} Lesungen fertig"),
-                konten=konten,
+                konten=konten, kategorien={**labels(KAT_STAND), schluessel: name},
             )
         except Exception as e:
             st.session_state["meldung_probelauf"] = f"Probelauf fehlgeschlagen: {e}"
         else:
             st.session_state[f"testlauf_{wahl}"] = {"ergebnisse": ergebnisse, "varianten": list(varianten),
                                                     "erwartet": erwartete_kategorien(schluessel), "name": name,
-                                                    "schluessel": schluessel}
-        finally:
-            kategorien_registrieren(labels(KAT_STAND))
-            konten_registrieren(kat_konten(KAT_STAND))
+                                                    "schluessel": schluessel, "muster": _musterloesungen(daten)}
         st.rerun(scope="fragment")  # Knopf wieder normal, Ergebnis anzeigen – Fenster bleibt offen
 
     ergebnis = st.session_state.get(f"testlauf_{wahl}")
@@ -1965,11 +1963,28 @@ def _zeige_testlauf(wahl: str, k: dict, praefix: str) -> None:
 _VARIANTE_TITEL = {"vorher": "Bisherige Beschreibung", "nachher": "Neue Beschreibung"}
 
 
+def _musterloesungen(daten: list[tuple[str, bytes, str]]) -> dict[str, dict]:
+    """Beispielbelege, die schon im Tab „Belege“ geprüft wurden (gleiche Datei) -> deren Prüfung als Musterlösung:
+    {beleg_name: {"kategorie": richtige Belegart, "felder": {key: richtiger Wert}}}."""
+    try:
+        bewertungen = {b["sha"]: b["bewertung"] for b in _alle_belege() if b.get("bewertung")}
+    except Exception:
+        return {}
+    muster = {}
+    for name, inhalt, _mime in daten:
+        f = bewertungen.get(datei_hash(inhalt))
+        if f:
+            muster[name] = {"kategorie": f["kategorie"]["korrekt"],
+                            "felder": {k: v["korrekt"] for k, v in (f.get("felder") or {}).items()}}
+    return muster
+
+
 def _testlauf_fazit(vorher: dict, nachher: dict) -> tuple[str, str]:
     """-> (Art: success/warning/info, verständlicher Satz)."""
     d_erkannt = nachher["erkannt"] - vorher["erkannt"]
     d_nachfragen = nachher["nachfragen"] - vorher["nachfragen"]
-    if d_erkannt == 0 and d_nachfragen == 0:
+    d_felder = nachher.get("felder_richtig", 0) - vorher.get("felder_richtig", 0)
+    if d_erkannt == 0 and d_nachfragen == 0 and d_felder == 0:
         return "info", "**Kein Unterschied.** Beide Beschreibungen liefern bei den Beispielbelegen dasselbe Ergebnis."
 
     def belege(n):
@@ -1978,15 +1993,19 @@ def _testlauf_fazit(vorher: dict, nachher: dict) -> tuple[str, str]:
     teile = []
     if d_erkannt:
         teile.append(f"{belege(abs(d_erkannt))} {'mehr' if d_erkannt > 0 else 'weniger'} richtig erkannt")
+    if d_felder:
+        teile.append(f"{abs(d_felder)} {'Feld' if abs(d_felder) == 1 else 'Felder'} "
+                     f"{'mehr' if d_felder > 0 else 'weniger'} richtig gelesen (laut Musterlösung)")
     if d_nachfragen:
         teile.append(f"{belege(abs(d_nachfragen))} {'mehr' if d_nachfragen > 0 else 'weniger'} müssten "
                      "nachgefragt werden")
-    satz = "Mit der neuen Beschreibung: " + " und ".join(teile) + "."
-    if abs(d_erkannt) + abs(d_nachfragen) <= 1:
+    satz = ("Mit der neuen Beschreibung: " + ", ".join(teile[:-1]) + (" und " if len(teile) > 1 else "")
+            + teile[-1] + ".")
+    if abs(d_erkannt) + abs(d_nachfragen) + abs(d_felder) <= 1:
         satz += (" Ein Unterschied von nur einem Beleg kann auch Zufall sein – im Zweifel den Probelauf "
                  "noch einmal starten.")
-    # Richtig erkennen ist wichtiger als wenige Rückfragen
-    besser = d_erkannt > 0 or (d_erkannt == 0 and d_nachfragen < 0)
+    # Richtig erkennen ist wichtiger als richtig lesen, das wiederum wichtiger als wenige Rückfragen
+    besser = d_erkannt > 0 or (d_erkannt == 0 and (d_felder > 0 or (d_felder == 0 and d_nachfragen < 0)))
     if besser:
         return "success", "**Die Änderung hilft.** " + satz
     return "warning", "**Eher nicht speichern.** " + satz
@@ -1997,13 +2016,16 @@ def _zeige_testergebnis(t: dict) -> None:
     if varianten == ["nachher"]:
         st.info("Die Beschreibung oben ist unverändert – deshalb wurde nur einmal gelesen.",
                 icon=":material/info:")
-    zahlen = {v: testlauf_zusammenfassung(ergebnisse, v, erwartet) for v in varianten}
+    muster = t.get("muster") or {}
+    zahlen = {v: testlauf_zusammenfassung(ergebnisse, v, erwartet, muster) for v in varianten}
     for spalte, v in zip(st.columns(len(varianten)), varianten):
         z = zahlen[v]
         spalte.markdown(f"**{_VARIANTE_TITEL[v]}**")
         spalte.markdown(
             f"- Richtig als „{t['name']}“ erkannt: **{z['erkannt']} von {z['belege']}**\n"
             f"- Müssten nachgefragt werden: **{z['nachfragen']} von {z['belege']}**"
+            + (f"\n- Felder richtig gelesen (bei {z['mit_muster']} geprüften Belegen): "
+               f"**{z['felder_richtig']} von {z['felder_geprueft']}**" if z.get("felder_geprueft") else "")
             + (f"\n- Konnten nicht gelesen werden: **{z['fehler']}**" if z["fehler"] else "")
             + ("\n- Konten: " + ", ".join(f"{_konto_label(nr, t.get('schluessel'))} ({n}×)"
                                          for nr, n in sorted(z["konten"].items())) if z.get("konten") else "")
@@ -2012,29 +2034,36 @@ def _zeige_testergebnis(t: dict) -> None:
         art, text = _testlauf_fazit(zahlen["vorher"], zahlen["nachher"])
         getattr(st, art)(text, icon={"success": ":material/thumb_up:", "warning": ":material/thumb_down:",
                                      "info": ":material/drag_handle:"}[art])
+    if not muster:
+        st.caption(":material/info: Keiner der Beispielbelege wurde bisher im Tab „Belege“ geprüft – deshalb "
+                   "zählt nur die Belegart, nicht, ob Beträge und Datum stimmen. Wird ein Beispielbeleg einmal "
+                   "hochgeladen und geprüft, gibt es beim nächsten Probelauf auch diesen Vergleich.")
     st.caption("Grün = KI ist sicher, rot = müsste nachgefragt werden, grau = Datei nicht lesbar. "
                "✓ = als diese Kategorie erkannt, ✗ = als andere Kategorie erkannt. "
-               "Konto mit „?“ = die KI ist beim Konto unsicher.")
+               "Konto mit „?“ = die KI ist beim Konto unsicher. „falsch: …“ = Felder, die laut Musterlösung "
+               "nicht stimmen.")
 
-    def zelle(e) -> str:
+    def zelle(name, e) -> str:
         if e is None:
             return "–"
         if e.fehler:
             return f"Fehler: {e.fehler[:60]}"
-        treffer = "✓" if e.kategorie in erwartet else "✗"
+        treffer = "✓" if e.kategorie in testlauf_erwartet_fuer(name, erwartet, muster) else "✗"
         konto = f" · Konto {e.konto}{'?' if e.konto_unsicher else ''}" if getattr(e, "konto", None) else ""
+        falsch = testlauf_felder_vergleichen(e, muster.get(name))[2]
         return (f"{treffer} {_kategorie_label(e.kategorie)} · {e.betrag}{konto} · "
-                f"{'Nachfrage' if e.nachfrage else 'ok'}")
+                f"{'Nachfrage' if e.nachfrage else 'ok'}" + (f" · falsch: {', '.join(falsch)}" if falsch else ""))
 
     zeilen = []
     for name, je_variante in ergebnisse.items():
-        zeile = {"Beleg": name}
+        zeile = {"Beleg": name + (" (geprüft)" if name in muster else "")}
         for v in varianten:
-            zeile[_VARIANTE_TITEL[v]] = zelle(je_variante.get(v))
+            zeile[_VARIANTE_TITEL[v]] = zelle(name, je_variante.get(v))
         if len(varianten) == 2:
             a, b = je_variante.get("vorher"), je_variante.get("nachher")
             geaendert = a and b and (a.kategorie != b.kategorie or a.nachfrage != b.nachfrage
-                                     or getattr(a, "konto", None) != getattr(b, "konto", None))
+                                     or getattr(a, "konto", None) != getattr(b, "konto", None)
+                                     or a.betrag != b.betrag or a.datum != b.datum)
             zeile["Unterschied"] = "anders" if geaendert else "–"
         zeilen.append(zeile)
     _farbtabelle(zeilen, [_VARIANTE_TITEL[v] for v in varianten])

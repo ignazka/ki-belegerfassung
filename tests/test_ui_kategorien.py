@@ -153,3 +153,28 @@ def test_probelauf_zeigt_konto():
     zellen = _zellen(at)
     assert any("Konto 6640 · ok" in z for z in zellen) and any("Konto 6664? · Nachfrage" in z for z in zellen)
     assert "anders" in zellen
+
+
+def test_probelauf_mit_musterloesung():
+    """Beispielbeleg schon geprüft -> Felder werden gegen die Prüfung gezählt, falsche Felder genannt."""
+    from testlauf import Ergebnis
+    at = A.app(kategorien=[_kategorie_mit_ausnahmen()])
+    at.selectbox(key="kategorie_wahl").set_value("restaurant_beleg").run()
+    werte_alt = {"brutto": 20.0, "datum": "2026-01-01"}
+    werte_neu = {"brutto": 20.0, "datum": "2026-01-02"}
+    at.session_state["testlauf_restaurant_beleg"] = {
+        "ergebnisse": {"a.png": {"vorher": Ergebnis("restaurant_beleg", False, [], "20,00 €", "01.01.2026",
+                                                    werte=werte_alt),
+                                 "nachher": Ergebnis("restaurant_beleg", False, [], "20,00 €", "02.01.2026",
+                                                     werte=werte_neu)}},
+        "varianten": ["vorher", "nachher"], "erwartet": {"restaurant_beleg"}, "name": "Restaurant",
+        "schluessel": "restaurant_beleg",
+        "muster": {"a.png": {"kategorie": "restaurant_beleg", "felder": {"brutto": 20.0, "datum": "2026-01-01"}}}}
+    at.run()
+    A.keine_fehler(at)
+    texte = [m.value for m in at.markdown]
+    assert any("Felder richtig gelesen (bei 1 geprüften Belegen): **2 von 2**" in t for t in texte), texte
+    assert any("**1 von 2**" in t for t in texte)
+    zellen = _zellen(at)
+    assert any("falsch: Datum" in z for z in zellen) and "anders" in zellen
+    assert any("Eher nicht speichern" in w.value for w in at.warning)

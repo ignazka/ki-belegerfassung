@@ -8,7 +8,7 @@ import re
 
 import pymupdf
 from dotenv import load_dotenv
-from openai import OpenAI
+from openai import BadRequestError, OpenAI, UnprocessableEntityError
 from PIL import Image, ImageFilter, ImageOps
 from pydantic import ValidationError
 
@@ -146,8 +146,10 @@ def _modell_aufrufen(content, modell: str, system: str = SYSTEM_PROMPT):
     client = get_client()
     try:
         return client.chat.completions.create(response_format={"type": "json_object"}, **kwargs)
-    except Exception:
-        # Fallback, falls der Anbieter json_object nicht unterstützt
+    except (BadRequestError, UnprocessableEntityError):
+        # Nur wenn der Anbieter die Anfrage ablehnt (z. B. json_object nicht unterstützt): ohne Vorgabe erneut.
+        # Zeitüberschreitung/Netz/Überlastung nicht – die wiederholt der Client schon selbst (max_retries),
+        # ein zweiter Durchlauf würde die Wartezeit nur verdoppeln.
         return client.chat.completions.create(**kwargs)
 
 

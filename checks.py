@@ -4,7 +4,8 @@ Das Modell liest nur ab; alles Rechnen und Gegenprüfen passiert hier.
 """
 
 import re
-from datetime import date
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from beleg_schema import (
     TOLERANZ_SUMME,
@@ -85,7 +86,8 @@ def pruefen(a: BelegAnalyse) -> list[str]:
             )
 
     # 4. Datum
-    if a.datum and a.datum > date.today().isoformat():
+    heute = datetime.now(ZoneInfo("Europe/Berlin")).date()  # Server läuft auf UTC – Belege sind deutsche Zeit
+    if a.datum and a.datum > heute.isoformat():
         befunde.append(f"Datum {datum_de(a.datum)} liegt in der Zukunft.")
 
     return befunde

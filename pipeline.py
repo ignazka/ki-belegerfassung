@@ -10,6 +10,7 @@
 """
 
 from concurrent.futures import ThreadPoolExecutor
+from contextvars import copy_context
 from dataclasses import dataclass, field
 
 from beleg_schema import BelegAnalyse
@@ -61,8 +62,10 @@ def beleg_lesen(bilder: list[bytes], dateien=None, status=None, system: str = SY
 
     melden("Lese den Beleg doppelt …")
     with ThreadPoolExecutor(max_workers=2) as pool:
-        f1 = pool.submit(_lesen, bilder, MODEL, "original", system)
-        f2 = pool.submit(_lesen, [kontrast_variante(b) for b in bilder], MODEL, "kontrast", system)
+        # copy_context: ein Probelauf-Sonderstand (beleg_schema.sonderstand) gilt auch in den Lese-Threads
+        f1 = pool.submit(copy_context().run, _lesen, bilder, MODEL, "original", system)
+        f2 = pool.submit(copy_context().run, _lesen, [kontrast_variante(b) for b in bilder], MODEL, "kontrast",
+                         system)
         l1, l2 = f1.result(), f2.result()
     lesungen = [l1, l2]
 
@@ -108,6 +111,8 @@ def beleg_lesen(bilder: list[bytes], dateien=None, status=None, system: str = SY
 
     befunde = pruefen(gross)
     gruende = nachfragen_gruende(gross, befunde)
+    if basis is None:  # beide kleinen Lesungen fehlgeschlagen -> niemand hat gegengelesen
+        gruende.append("Nur das große Modell konnte den Beleg lesen – ohne Gegenprobe, bitte die Werte prüfen.")
     for f in ungeklaert:
         gruende.append(
             f"Unsicher gelesen – {f}: "
