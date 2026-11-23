@@ -18,8 +18,9 @@ Kurzfassung:
 
 Datei: `extraction.py` (`dateien_zu_bildern`)
 
-- Erlaubt: JPG, PNG, PDF. Bei mehreren Dateien fragt die App, wie sie gelesen werden sollen:
-  - **Stapel** (Standard): Jede Datei ist ein eigener Beleg. Bis zu 30 Belege, 3 gleichzeitig, jeder mit
+- Erlaubt: JPG, PNG, PDF. Bei mehreren Dateien fragt die App, wie sie gelesen werden sollen – **ohne
+  Vorauswahl**; erst nach der Wahl lässt sich die Analyse starten:
+  - **Stapel**: Jede Datei ist ein eigener Beleg. Bis zu 30 Belege, 3 gleichzeitig, jeder mit
     dem vollen Ablauf. Ergebnis: Übersicht (stimmig / Nachfrage / Fehler, farbig), CSV-Download,
     die Analyse jedes Belegs im Detail ansehbar. **Jeder** analysierte Beleg wird abgelegt (Original +
     Ergebnis in `analysen/`) und erscheint im Tab „Belege“.
@@ -243,6 +244,11 @@ Mini-Vorschauen zum Springen), rechts:
   richtigen Werten; „Abbrechen“ schließt es wieder. Begründung Pflicht.
 
 Nach dem Speichern steht oben die Gegenüberstellung der gerade gespeicherten Prüfung.
+
+**Falsch hochgeladen?** Unter dem Prüfbereich verschiebt **„Beleg entfernen“** den Beleg mit Analyse, allen
+Prüfungen und der Originaldatei in den Papierkorb von Google Drive (30 Tage wiederherstellbar). Er verschwindet
+aus der Liste und zählt nicht mehr in der Auswertung; danach richtig neu hochladen. Originaldateien, die ein
+anderer Beleg ebenfalls nutzt, bleiben liegen.
 
 **Gespeichert** wird jede Prüfung als **neuer** Feedback-Eintrag (nur anhängen, Stufe 1 des Leitfadens:
 Annika prüft und dokumentiert jede Korrektur): Person, Zeitpunkt, Belegart und jedes Feld KI/richtig,

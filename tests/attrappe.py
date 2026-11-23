@@ -20,6 +20,7 @@ SPEICHER: dict[str, list[dict]] = {art: [] for art in ARTEN}
 KI: dict = {}  # analyse (dict), gruende (list) für beleg_lesen; text_antwort (dict) für text_anfrage_json
 ANFRAGEN: list[str] = []  # Nachrichten an text_anfrage_json
 LADEN: dict[str, int] = {}  # wie oft jede Ablage gelesen wurde (für Tests zur Effizienz)
+PAPIERKORB: list[tuple[str, list[str]]] = []  # Aufrufe von beleg_in_papierkorb: (sha, Originaldateien)
 # Kalender-Verbindung: "verbindung" (dict wie storage.kalender_verbindung), "liste" (Kalender des Kontos),
 # "ruecksprung" (Ergebnis oder Exception für storage.kalender_ruecksprung); AUFRUFE protokolliert Änderungen
 KALENDER: dict = {}
@@ -102,6 +103,16 @@ def einsetzen() -> None:
     storage.schon_bewertet = lambda sha: any(f.get("datei_sha256") == sha for f in SPEICHER["feedback"])
     storage.beleg_speichern = lambda daten, name, sha: f"belege/{name}"
     storage.beleg_laden = lambda pfad: bild_png()
+
+    def in_papierkorb(sha, beleg_pfade):
+        PAPIERKORB.append((sha, list(beleg_pfade)))
+        anzahl = 0
+        for art in ("analysen", "nachfragen", "feedback", "entscheidungen"):
+            vorher = len(SPEICHER[art])
+            SPEICHER[art] = [e for e in SPEICHER[art] if e.get("datei_sha256") != sha]
+            anzahl += vorher - len(SPEICHER[art])
+        return anzahl + len(beleg_pfade)
+    storage.beleg_in_papierkorb = in_papierkorb
     storage.kategorie_dokument_ablegen = lambda name, text: "test-doc"
     # Beispielordner vortäuschen: KI["beispiele"] = {ordner: [(name, bytes, mime), …]}
     beispiele = KI.get("beispiele") or {}
@@ -215,6 +226,7 @@ def app(ki: dict | None = None, kalender: dict | None = None, abfrage: dict | No
     KI.update(ki or {})
     ANFRAGEN.clear()
     LADEN.clear()
+    PAPIERKORB.clear()
     KALENDER.clear()
     KALENDER.update(kalender or {})
     KALENDER_AUFRUFE.clear()

@@ -58,7 +58,9 @@ Upload ─► Bilder ─► 2 Lesungen parallel ─► Vergleich + Prüfungen �
 ```
 
 1. **Upload** (`App.py`): eine oder mehrere Dateien. Mehrere Dateien sind entweder ein **Stapel** (jede Datei
-   ein Beleg, bis 30, drei gleichzeitig in Threads) oder **ein Beleg** (z. B. Rechnung + EC-Beleg).
+   ein Beleg, bis 30, drei gleichzeitig in Threads) oder **ein Beleg** (z. B. Rechnung + EC-Beleg). Die Auswahl
+   hat **keine Vorbelegung** (`index=None`) und wird bei anderen Dateien neu gestellt; vorher ist „Analysieren“
+   gesperrt – eine falsche Standardwahl hatte zweiseitige Belege in zwei Belege zerlegt.
    Der Analyse-Knopf läuft über `_lauf_knopf`: Klick → neuer Durchlauf mit gesperrtem Knopf (Spinner) und
    gesperrten Tabs, dann die eigentliche Arbeit, dann `st.rerun()`.
 2. **Beleg-Kennung:** `sha256` der Datei; bei mehreren Dateien `sha256` über die Einzel-Hashes. Diese
@@ -225,6 +227,14 @@ Lokal stattdessen eine Zeile je Eintrag in `<art>.jsonl` (Rechte 0700/0600).
 
 - **Nur anhängen, nie überschreiben oder löschen.** Jede Analyse, Prüfung und Kategorie-Änderung ist ein neuer
   Eintrag mit `zeitpunkt` (ISO, Sekunden). Dadurch ist nachvollziehbar, wer wann was gemacht hat.
+- **Ausnahme „Beleg entfernen“** (Tab „Belege“, Popover unter dem Prüfbereich, `App._beleg_entfernen` →
+  `storage.beleg_in_papierkorb`): für falsch hochgeladene Belege. Alle Einträge zu diesem `datei_sha256` in
+  `analysen/`, `nachfragen/`, `feedback/`, `entscheidungen/` (Dateiname endet auf `_<sha16>.json`; gefiltert im
+  Code, weil Drives `name contains` nur Wortanfänge findet) und die Originale aus `belege/`, die kein anderer
+  Beleg mehr nutzt (z. B. bleibt eine Seite liegen, die auch im richtig neu hochgeladenen Beleg steckt), gehen in
+  den **Drive-Papierkorb** (`trashed: true`, 30 Tage wiederherstellbar) – nie endgültig gelöscht. Lokal: Zeilen
+  bzw. Dateien nach `data/papierkorb/`. Danach zählt der Beleg auch in der Auswertung nicht mehr. Begründung: Die
+  Analyse eines falsch zerlegten Belegs ist weder Lernmaterial noch Messgrundlage, sondern verfälscht beides.
 - **Es gilt der jüngste Eintrag** pro `datei_sha256` (Analysen, Prüfungen) bzw. pro `schluessel` (Kategorien).
 - Formate werden nur **erweitert** – alte Einträge müssen lesbar bleiben (Code liest fehlende Felder mit
   Standardwerten, z. B. `quelle` fehlt = altes Feedback).

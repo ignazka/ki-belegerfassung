@@ -49,3 +49,16 @@ def test_beleg_speichern_und_laden(storage, tmp_path):
 def test_leere_ablage(storage):
     assert storage.feedback_laden() == [] and storage.analysen_laden() == []
     assert storage.ablage_beschreibung() == "lokal" and storage.ablage_link() is None
+
+
+def test_beleg_in_papierkorb_lokal(storage, tmp_path):
+    storage.analyse_speichern({"datei_sha256": "weg", "gruende": []})
+    storage.analyse_speichern({"datei_sha256": "bleibt", "gruende": []})
+    storage.feedback_speichern({"datei_sha256": "weg", "kommentar": "falsch hochgeladen"})
+    pfad = storage.beleg_speichern(b"bild", "seite.png", "weg" * 6)
+    assert storage.beleg_in_papierkorb("weg", [pfad]) == 3  # Analyse, Prüfung, Originaldatei
+    assert [e["datei_sha256"] for e in storage.analysen_laden()] == ["bleibt"]
+    assert storage.feedback_laden() == []
+    korb = tmp_path / "papierkorb"
+    assert (korb / "analysen.jsonl").exists() and (korb / "feedback.jsonl").exists()  # wiederherstellbar
+    assert (korb / pfad.split("/")[-1]).exists() and not (tmp_path / pfad).exists()

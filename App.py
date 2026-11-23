@@ -55,6 +55,7 @@ from storage import (
     anlage_ordner,
     beispielbeleg_hochladen,
     beispielbeleg_laden,
+    beleg_in_papierkorb,
     beispielbelege,
     kategorie_dokument_ablegen,
     kategorie_speichern,
@@ -515,7 +516,9 @@ def _lauf_knopf(label: str, name: str, *, ort=None, scope: str = "app", **knopf_
     if st.session_state.pop(merker, False):
         knopf_args.pop("icon", None)
         knopf_args.pop("disabled", None)
-        ort.button(label, key=f"laufknopf_{name}", disabled=True, icon=":material/progress_activity:", **knopf_args)
+        with ort.container(key=f"laeuft_{name}"):  # CSS-Haken: Spinner statt Text, andere Tabs gesperrt
+            st.button(label, key=f"laufknopf_{name}", disabled=True, icon=":material/progress_activity:",
+                      **knopf_args)
         return True
     if ort.button(label, key=f"laufknopf_{name}", **knopf_args):
         st.session_state[merker] = True
@@ -1303,6 +1306,26 @@ def _belege_zusammenfuehren() -> list[dict]:
     return sorted(belege.values(), key=lambda b: b["zeitpunkt"], reverse=True)
 
 
+def _beleg_pfade(b: dict) -> set[str]:
+    """Originaldateien eines Belegs (aus Analyse und Prüfung; ältere Einträge haben nur beleg_pfad)."""
+    pfade = set()
+    for e in (b.get("analyse_eintrag"), b.get("bewertung")):
+        if e:
+            pfade.update(e.get("beleg_pfade") or ([e["beleg_pfad"]] if e.get("beleg_pfad") else []))
+    return pfade
+
+
+def _beleg_entfernen(b: dict, naechster: str | None) -> None:
+    """Beleg mit allen Einträgen in den Papierkorb (Drive: 30 Tage wiederherstellbar). Originaldateien, die ein
+    anderer Beleg auch nutzt (z. B. dieselbe Seite im richtig neu hochgeladenen Beleg), bleiben liegen."""
+    andere = set().union(*[_beleg_pfade(x) for x in _alle_belege() if x["sha"] != b["sha"]])
+    beleg_in_papierkorb(b["sha"], sorted(_beleg_pfade(b) - andere))
+    _LAUF_CACHE.pop("belege", None)
+    st.session_state["beleg_entfernt"] = b.get("dateiname") or "Beleg"
+    if naechster:
+        st.session_state["beleg_wahl_naechste"] = naechster
+
+
 def _offene_nachfragen() -> int | None:
     try:
         return sum(1 for b in _alle_belege() if b["status"] == "offen")
@@ -1411,6 +1434,12 @@ def zeige_belege():
         "hat – korrigieren. Das geht auch bei Belegen, die schon als richtig abgehakt sind. Jede Prüfung wird "
         "gespeichert und fließt in die Auswertung und in die Verbesserungsvorschläge ein."
     )
+    entfernt = ss.pop("beleg_entfernt", None)
+    if entfernt:
+        st.success(f"„{entfernt}“ ist in den Papierkorb verschoben. Versehentlich? Im Papierkorb von Google Drive "
+                   "lässt er sich 30 Tage lang wiederherstellen. Jetzt im Tab „Belege hochladen“ richtig neu "
+                   "hochladen – gehören mehrere Dateien zu einem Beleg, alle zusammen auswählen und „Alle Dateien "
+                   "gehören zu EINEM Beleg“ wählen.", icon=":material/delete:")
     zuletzt = ss.pop("beleg_zuletzt", None)
     if zuletzt:  # Ergebnis der gerade gespeicherten Prüfung; darunter geht es mit dem nächsten Beleg weiter
         with st.container(border=True):
@@ -1536,6 +1565,21 @@ def _beleg_ansicht(b: dict, naechster: str | None) -> None:
             _beleg_formular(b, "nachfrage" if b["gruende"] else "pruefen", naechster)
         else:
             st.warning("Zu diesem Beleg ist kein Analyseergebnis gespeichert.")
+
+        with st.popover("Beleg entfernen", icon=":material/delete:", key=f"beleg_entfernen_{b['sha']}"):
+            st.markdown("**Beleg in den Papierkorb verschieben?**")
+            st.caption("Für falsch hochgeladene Belege – z. B. ein zweiseitiger Beleg, der als zwei einzelne Belege "
+                       "analysiert wurde. Entfernt werden die Analyse, alle Prüfungen und die Originaldatei; der "
+                       "Beleg zählt auch nicht mehr in der Auswertung. Im Papierkorb von Google Drive 30 Tage lang "
+                       "wiederherstellbar. Danach richtig neu hochladen.")
+            if st.button("Ja, in den Papierkorb", type="primary", icon=":material/delete:",
+                         key=f"beleg_entfernen_ja_{b['sha']}"):
+                try:
+                    _beleg_entfernen(b, naechster)
+                except Exception as e:
+                    st.error(f"Entfernen fehlgeschlagen: {e}")
+                else:
+                    st.rerun()
 
 
 def _beleg_formular(b: dict, modus: str, naechster: str | None, offen_key: str | None = None) -> None:
@@ -2309,9 +2353,10 @@ st.markdown(
     '[class*="st-key-belegdaumen_"] img[data-aktiv="1"] {border-color: var(--akzent); opacity: 1;}'
     # Analyse-Knopf: während der Analyse nur ein drehender Spinner (Text bleibt für Screenreader erhalten)
     "@keyframes beleg-dreh {to {transform: rotate(360deg);}}"
-    '[class*="st-key-laufknopf_"] button:disabled [data-testid="stIconMaterial"]'
+    # (nur der laufende Knopf steckt im Container „laeuft_…“ – ein bloß gesperrter Knopf behält seinen Text)
+    '[class*="st-key-laeuft_"] button:disabled [data-testid="stIconMaterial"]'
     ' {animation: beleg-dreh 1s linear infinite;}'
-    '[class*="st-key-laufknopf_"] button:disabled [data-testid="stMarkdownContainer"] {position: absolute; width: 1px;'
+    '[class*="st-key-laeuft_"] button:disabled [data-testid="stMarkdownContainer"] {position: absolute; width: 1px;'
     ' height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;}'
     '[class*="st-key-laufknopf_"] button {min-width: 12rem;}'
     # kleinere Karten für Lern-Fälle ohne Vorschlag; Knopf als Link in der Akzentfarbe
@@ -2333,8 +2378,8 @@ st.markdown(
     ' {color: var(--akzent); font-weight: 600;}'
     '.st-key-beleg_blaettern button:not(:disabled):hover p {text-decoration: underline;}'
     '.st-key-beleg_blaettern [data-testid="stMarkdownContainer"] p {color: var(--leise); font-size: .9rem;}'
-    # solange der Knopf gesperrt ist (Analyse läuft), sind die anderen Tabs gesperrt
-    '.stApp:has([class*="st-key-laufknopf_"] button:disabled) .stTabs [role="tab"]:not([data-selected])'
+    # solange ein Vorgang läuft, sind die anderen Tabs gesperrt
+    '.stApp:has([class*="st-key-laeuft_"] button:disabled) .stTabs [role="tab"]:not([data-selected])'
     ' {pointer-events: none; opacity: .4;}'
     # Belegspalte (Tab „Belege“) genau so hoch wie die rechte Spalte: Inhalt absolut im Spaltenrahmen, die
     # aktuelle Seite füllt den Platz zwischen Überschrift und Blätterleiste. Nur nebeneinander (ab 640 px).
@@ -2393,17 +2438,30 @@ with tab_analyse:
     )
 
     stapel_modus = False
+    modus_fehlt = False
     if uploads and len(uploads) > 1:
+        # Bewusst ohne Vorauswahl: Eine falsche Wahl zerlegt z. B. einen zweiseitigen Beleg in zwei Belege.
+        # Andere Dateien gewählt -> Frage neu stellen (alte Antwort nicht stillschweigend übernehmen).
+        dateien_kennung = beleg_hash(_dateien(uploads))
+        if st.session_state.get("upload_modus_dateien") != dateien_kennung:
+            st.session_state.pop("upload_modus", None)
+            st.session_state["upload_modus_dateien"] = dateien_kennung
         modus = st.radio(
             "Wie sollen die Dateien gelesen werden?",
             ["stapel", "ein_beleg"],
             format_func={
                 "stapel": f"Jede Datei ist ein eigener Beleg (Stapel, {len(uploads)} Belege)",
-                "ein_beleg": "Alle Dateien gehören zu EINEM Beleg (z. B. Rechnung + EC-Beleg, mehrere Fotos)",
+                "ein_beleg": "Alle Dateien gehören zu EINEM Beleg (z. B. Vorder- und Rückseite, mehrere Seiten, "
+                             "Rechnung + EC-Beleg)",
             }.get,
+            index=None,
             key="upload_modus",
         )
         stapel_modus = modus == "stapel"
+        modus_fehlt = modus is None
+        if modus_fehlt:
+            st.caption(":material/arrow_upward: Bitte zuerst wählen, ob die Dateien einzelne Belege sind oder "
+                       "zusammen einen Beleg bilden.")
         if stapel_modus and len(uploads) > MAX_STAPEL:
             st.warning(f"Es werden die ersten {MAX_STAPEL} von {len(uploads)} Dateien analysiert.")
 
@@ -2417,7 +2475,7 @@ with tab_analyse:
             st.session_state["upload_kennung"] = kennung
 
         knopf = f"{min(len(uploads), MAX_STAPEL)} Belege analysieren" if stapel_modus else "Beleg analysieren"
-        if _lauf_knopf(knopf, "analyse", type="primary"):
+        if _lauf_knopf(knopf, "analyse", type="primary", disabled=modus_fehlt):
             st.caption("Analyse läuft – bitte warten. Die anderen Tabs sind so lange gesperrt.")
             if stapel_modus:
                 stapel_starten(uploads)

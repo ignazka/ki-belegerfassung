@@ -69,7 +69,8 @@ im Browser geht, im Browser lösen statt einen Spinner vor einen Server-Durchlau
 
 **Rückmeldung bei Wartezeiten:** Knöpfe für längere Vorgänge (Analyse, Verbesserungsvorschläge, KI-Assistent,
 Probelauf) laufen über `_lauf_knopf(label, name, …)` in `App.py`: Nach dem Klick ist derselbe Knopf
-ausgegraut mit Spinner, die anderen Tabs sind gesperrt (CSS auf `st-key-laufknopf_…`), danach `st.rerun()`
+ausgegraut mit Spinner, die anderen Tabs sind gesperrt (CSS auf den Container `st-key-laeuft_…`, den nur der
+laufende Knopf hat – ein bloß per `disabled=` gesperrter `laufknopf_…` behält Text und sperrt nichts), danach `st.rerun()`
 (im Dialog `scope="fragment"`); Fehler über `st.session_state["meldung_<name>"]` + `_lauf_meldung`. Neue
 lange Vorgänge genauso bauen. Zusätzlich zeigt ein orangefarbener Ladebalken oben jeden Server-Durchlauf
 (CSS auf Streamlits `stStatusWidgetRunningIcon`).
@@ -99,7 +100,11 @@ App-Benutzer). Danach Dialog „Welche Kalender?“ (mehrere möglich). Zugang F
 ## Datenablage (wichtig für jede Änderung)
 
 Drive-Ordner aus `[google_drive].ordner_id`, sonst lokal `data/`. **Alles nur anhängen, nie überschreiben**;
-pro Datei-Hash gilt der **jüngste** Eintrag.
+pro Datei-Hash gilt der **jüngste** Eintrag. Einzige Ausnahme: **„Beleg entfernen“** (Tab „Belege“, für falsch
+hochgeladene Belege) verschiebt alle Einträge dieses Datei-Hashs (`analysen/`, `nachfragen/`, `feedback/`,
+`entscheidungen/`, erkannt am Dateinamen `<zeitpunkt>_<sha16>.json`) und die Originale, die kein anderer Beleg
+nutzt, in den **Drive-Papierkorb** (30 Tage wiederherstellbar; lokal `data/papierkorb/`) –
+`storage.beleg_in_papierkorb`, nie endgültig löschen.
 
 | Unterordner | Inhalt |
 |---|---|
@@ -174,7 +179,6 @@ Kurzfristig:
 - **Verbesserungsrunden:** Prüfungen sammeln (ab ca. 20–30 Korrekturen), „Aus Korrekturen lernen“
   ausführen, Vorschläge im Kategorien-Tab testen und übernehmen; Wirkung über die Prompt-Version in der
   Auswertung vergleichen.
-- Optional angeboten, nicht umgesetzt: „Beleg entfernen“ für versehentliche Uploads.
 - **Schiedsrichter gezielt überspringen:** sobald „Wann hilft der Schiedsrichter?“ (Auswertung) für einen
   Auslöser genug Fälle ohne Wirkung zeigt, ihn dort in `pipeline.beleg_lesen` auslassen (wie schon bei rein
   fachlichen Gründen).

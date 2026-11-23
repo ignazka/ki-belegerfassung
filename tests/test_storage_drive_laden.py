@@ -79,3 +79,46 @@ def test_nur_neue_dateien_werden_geladen(drive):
     inhalte["2026-11-08_neu.json"] = b'{"nr": 8}'
     assert [e["nr"] for e in storage._drive_jsons_lesen("analysen")][-1] == 8
     assert [p[0] for p in protokoll] == ["2026-11-08_neu.json"]
+
+
+def test_beleg_in_papierkorb_drive(monkeypatch):
+    """Nur Dateien dieses Belegs (Name endet auf _<sha16>.json) und die übergebenen Originale in den Papierkorb."""
+    import storage as modul
+    modul = importlib.reload(modul)
+    sha = "a" * 64
+    ordner = {"analysen": [f"2026-11-23T07-00-00_{sha[:16]}.json", "2026-11-23T08-00-00_bbbbbbbbbbbbbbbb.json"],
+              "feedback": [f"2026-11-23T09-00-00_{sha[:16]}.json"], "nachfragen": [], "entscheidungen": [],
+              "belege": ["seite1.png", "seite2.png"]}
+    papierkorb = []
+
+    class Liste:
+        def __init__(self, q):
+            self.q = q
+
+        def execute(self, num_retries=0):
+            name = self.q.split("'")[1]
+            return {"files": [{"id": f"{name}/{n}", "name": n} for n in ordner[name]]}
+
+    class Update:
+        def __init__(self, file_id):
+            self.file_id = file_id
+
+        def execute(self, num_retries=0):
+            papierkorb.append(self.file_id)
+
+    class Dateien:
+        def list(self, q, **_k):
+            assert "trashed = false" in q
+            return Liste(q)
+
+        def update(self, fileId, body, **_k):
+            assert body == {"trashed": True}  # nur in den Papierkorb, nie endgültig löschen
+            return Update(fileId)
+
+    monkeypatch.setattr(modul, "_drive_config", lambda: {"ordner_id": "o", "refresh_token": "t", "client_id": "c",
+                                                         "client_secret": "s"})
+    monkeypatch.setattr(modul, "_drive", lambda: type("D", (), {"files": lambda self: Dateien()})())
+    monkeypatch.setattr(modul, "_unterordner_id", lambda name: name)
+    assert modul.beleg_in_papierkorb(sha, ["belege/seite1.png"]) == 3
+    assert sorted(papierkorb) == sorted([f"analysen/2026-11-23T07-00-00_{sha[:16]}.json",
+                                         f"feedback/2026-11-23T09-00-00_{sha[:16]}.json", "belege/seite1.png"])

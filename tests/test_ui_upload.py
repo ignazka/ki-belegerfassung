@@ -32,7 +32,11 @@ def test_nachfrage_wird_angezeigt_und_abgelegt():
 def test_stapel():
     dateien = [("a.png", A.bild_png(), "image/png"), ("b.png", A.bild_png() + b"x", "image/png")]
     at = A.app(ki={"dateien": dateien})
-    assert at.radio(key="upload_modus").value == "stapel"
+    # keine Vorauswahl: erst wählen, vorher ist „Analysieren“ gesperrt
+    assert at.radio(key="upload_modus").value is None
+    assert next(b for b in at.button if b.key == "laufknopf_analyse").disabled
+    assert any("Bitte zuerst wählen" in c.value for c in at.caption)
+    at.radio(key="upload_modus").set_value("stapel").run()
     _analysieren(at, "2 Belege analysieren")
     assert sorted(a["dateiname"] for a in A.SPEICHER["analysen"]) == ["a.png", "b.png"]
     assert [m.value for m in at.metric if m.label == "Belege"][0] == "2"

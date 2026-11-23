@@ -43,7 +43,8 @@
       text: "Stimmt die Belegart? Dann „Ja“, sonst die richtige auswählen. Falsch gelesene Werte einfach " +
             "überschreiben und kurz begründen – aus diesen Begründungen lernt die KI. Dazu gehört auch das " +
             "Konto (SKR04): Stimmt es nicht, die richtige Nummer eintragen. Auch schon geprüfte Belege " +
-            "lassen sich jederzeit über „Korrigieren“ ändern." },
+            "lassen sich jederzeit über „Korrigieren“ ändern. Falsch hochgeladen (z. B. zwei Seiten als zwei " +
+            "Belege)? Darunter über „Beleg entfernen“ in den Papierkorb und richtig neu hochladen." },
     { tab: 2, ziel: () => ersterSichtbarer(".st-key-kategorie_wahl"), titel: "Belegarten",
       text: "Hier legt ihr fest, welche Belegarten die KI kennt und woran sie sie erkennt. Oben eine Kategorie " +
             "auswählen, daneben über „Neue Kategorie“ eine neue anlegen. Beschreibt sie so, wie ihr es einem neuen " +
@@ -135,8 +136,19 @@
       });
       navigiert = false;
       // Große Tabellen weiter oben werden manchmal erst danach fertig gezeichnet und verschieben die Seite –
-      // dann Markierung und Popup kurz darauf neu ausrichten.
-      setTimeout(() => { if (tour.isActive()) tour.refresh(); }, 800);
+      // dann Markierung und Popup kurz darauf neu ausrichten. Nur wenn sie wirklich verrutscht ist: refresh()
+      // baut das Popup neu, ein Klick auf „Weiter“ genau in dem Moment ginge sonst verloren.
+      setTimeout(() => { if (tour.isActive() && verrutscht()) tour.refresh(); }, 800);
+    }
+    // Liegt die Aussparung im Overlay (letztes „M x,y“ im Pfad) nicht mehr am markierten Element?
+    function verrutscht() {
+      const pfad = document.querySelector(".driver-overlay path");
+      const el = document.querySelector(".driver-active-element");
+      if (!pfad || !el || el === document.body) return false;
+      const m = (pfad.getAttribute("d") || "").match(/M\s*[-\d.]+[ ,]\s*([-\d.]+)/g);
+      if (!m || m.length < 2) return false;  // nur Hintergrund, keine Aussparung (Popup in der Mitte)
+      const oben = parseFloat(m[m.length - 1].split(/[ ,]/).pop());
+      return Math.abs(el.getBoundingClientRect().top - 8 - oben) > 3;  // 8 = stagePadding
     }
     function gehe(i) {
       if (i >= n) { tour.destroy(); return; }

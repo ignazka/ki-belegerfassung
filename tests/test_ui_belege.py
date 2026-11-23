@@ -190,3 +190,26 @@ def test_veralteter_filter_in_sitzung_faellt_auf_start_zurueck():
     at.run()
     A.keine_fehler(at)
     assert at.segmented_control[0].value == "offen"
+
+
+def test_beleg_in_den_papierkorb():
+    """Falsch hochgeladen: Beleg samt Prüfungen in den Papierkorb; Originale, die ein anderer Beleg nutzt, bleiben."""
+    daten = _daten()
+    # „seite1“ wurde einzeln analysiert und geprüft; „ganz“ nutzt dieselbe Datei als Teil eines zweiseitigen Belegs
+    daten["analysen"] += [A.analyse_eintrag("seite1", gruende=["Summe passt nicht"]),
+                          {**A.analyse_eintrag("ganz"), "beleg_pfade": ["belege/seite1.png", "belege/seite2.png"]}]
+    daten["feedback"].append(A.bewertung("seite1"))
+    at = A.app(**daten)
+    at.segmented_control[0].set_value("alle").run()
+    at.selectbox(key="beleg_wahl").set_value("seite1").run()
+    A.knopf(at, "Ja, in den Papierkorb").click().run()
+    A.keine_fehler(at)
+    assert A.PAPIERKORB == [("seite1", [])]  # seite1.png gehört auch zu „ganz“ -> bleibt liegen
+    assert not any(e["datei_sha256"] == "seite1" for art in ("analysen", "feedback") for e in A.SPEICHER[art])
+    assert any("in den Papierkorb verschoben" in s.value for s in at.success)
+    optionen = at.selectbox(key="beleg_wahl").options
+    assert not any("seite1.png" in o for o in optionen) and any("ganz.png" in o for o in optionen), optionen
+    # ein Beleg, dessen Datei niemand sonst nutzt: Original kommt mit in den Papierkorb
+    at.selectbox(key="beleg_wahl").set_value("tank").run()
+    A.knopf(at, "Ja, in den Papierkorb").click().run()
+    assert A.PAPIERKORB[-1] == ("tank", ["belege/tank.png"])

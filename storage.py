@@ -358,6 +358,81 @@ def analysen_laden() -> list[dict]:
     return _eintraege_laden("analysen")
 
 
+# ---------------------------------------------------------------------------
+# Beleg entfernen (z. B. falsch hochgeladen): in den Papierkorb statt endgültig löschen
+# ---------------------------------------------------------------------------
+
+EINTRAG_ARTEN = ("analysen", "nachfragen", "feedback", "entscheidungen")  # alles, was zu einem Datei-Hash gehört
+
+
+def beleg_in_papierkorb(sha: str, beleg_pfade: list[str]) -> int:
+    """Alle Einträge zum Beleg (Analyse, Prüfungen, alte Nachfragen/Entscheidungen) und die übergebenen
+    Originaldateien in den Papierkorb. Drive: 30 Tage im Drive-Papierkorb wiederherstellbar. Lokal: nach
+    data/papierkorb/. beleg_pfade: nur Originale, die kein anderer Beleg mehr nutzt (prüft der Aufrufer).
+    -> Anzahl verschobener Dateien bzw. Einträge."""
+    if _drive_config():
+        return _drive_in_papierkorb(sha, beleg_pfade)
+    return _lokal_in_papierkorb(sha, beleg_pfade)
+
+
+def _drive_in_papierkorb(sha: str, beleg_pfade: list[str]) -> int:
+    svc = _drive()
+    ziele = []
+    endung = f"_{sha[:16]}.json"  # Einträge heißen <zeitpunkt>_<sha16>.json (siehe _eintrag_speichern)
+    for art in EINTRAG_ARTEN:
+        # nach Namen im Code filtern: „name contains“ findet bei Drive nur Wortanfänge
+        ziele += [d["id"] for d in _drive_dateien(svc, _unterordner_id(art)) if d["name"].endswith(endung)]
+    namen = {pfad.split("/")[-1] for pfad in beleg_pfade}
+    if namen:
+        ziele += [d["id"] for d in _drive_dateien(svc, _unterordner_id("belege")) if d["name"] in namen]
+    ziele = list(dict.fromkeys(ziele))
+    for datei_id in ziele:
+        svc.files().update(fileId=datei_id, body={"trashed": True}, **_ALLE_ABLAGEN).execute()
+    _drive_jsons_laden.clear()  # Listen neu laden – Papierkorb-Dateien sind dort ausgeschlossen
+    _drive_beleg_laden.clear()
+    return len(ziele)
+
+
+def _drive_dateien(svc, ordner: str) -> list[dict]:
+    """Alle (nicht gelöschten) Dateien eines Ordners: [{id, name}]."""
+    dateien, token = [], None
+    while True:
+        res = svc.files().list(q=f"'{ordner}' in parents and trashed = false", fields="nextPageToken, files(id, name)",
+                               pageSize=1000, pageToken=token, **_ALLE_ABLAGEN_LISTE).execute()
+        dateien += res.get("files", [])
+        token = res.get("nextPageToken")
+        if not token:
+            return dateien
+
+
+def _lokal_in_papierkorb(sha: str, beleg_pfade: list[str]) -> int:
+    ordner = _lokaler_ordner()
+    papierkorb = ordner / "papierkorb"
+    _ordner_anlegen(papierkorb)
+    anzahl = 0
+    for art in EINTRAG_ARTEN:
+        datei = ordner / f"{art}.jsonl"
+        if not datei.exists():
+            continue
+        behalten, weg = [], []
+        for zeile in datei.read_text(encoding="utf-8").splitlines():
+            try:
+                (weg if json.loads(zeile).get("datei_sha256") == sha else behalten).append(zeile)
+            except json.JSONDecodeError:
+                behalten.append(zeile)
+        if weg:
+            with (papierkorb / f"{art}.jsonl").open("a", encoding="utf-8") as f:
+                f.write("".join(z + "\n" for z in weg))
+            datei.write_text("".join(z + "\n" for z in behalten), encoding="utf-8")
+            anzahl += len(weg)
+    for pfad in beleg_pfade:
+        quelle = ordner / "belege" / pfad.split("/")[-1]
+        if quelle.exists():
+            quelle.replace(papierkorb / quelle.name)
+            anzahl += 1
+    return anzahl
+
+
 # Entscheidungen zu Nachfragen (erste Version, nur noch lesend): nur anhängen, nie überschreiben (Protokoll: wer hat wann was entschieden).
 # Der aktuelle Status einer Nachfrage ist die jüngste Entscheidung zu ihrem Datei-Hash.
 
