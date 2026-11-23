@@ -90,8 +90,8 @@
             "schlägt die Teilnehmer vor. Einmal hier verbinden: mit dem Konto anmelden, das die Termine sieht, " +
             "und auswählen, welche Kalender gelten. Die App liest nur, sie ändert nichts." },
     { tab: 0, ziel: () => ersterSichtbarer(".st-key-einfuehrung_start"), titel: "Jederzeit wiederholen",
-      text: "Über „Einführung starten“ in der Seitenleiste (am Handy: Menü oben links) startest du die " +
-            "Einführung jederzeit erneut. Oben rechts neben dem Menü (drei Punkte) wechselst du mit dem Mond-/Sonnen-Symbol zwischen hellem und dunklem Design. Viel Erfolg!" },
+      text: "Hier startest du die Einführung erneut (am Handy: Menü oben links). Mond/Sonne oben rechts " +
+            "wechselt zwischen hellem und dunklem Design." },
   ];
 
   // Tabs sind react-aria-Elemente: ein einfaches .click() reicht nicht, es braucht Zeiger-Ereignisse.
