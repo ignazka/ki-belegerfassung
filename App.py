@@ -1503,8 +1503,12 @@ def zeige_belege():
         return (f"{zeitpunkt_de(b['zeitpunkt'])} · {b['dateiname']} · {_kategorie_label(b['ki_kategorie'])}"
                 f" · {_BELEG_STATUS[b['status']]}")
 
-    sha = st.selectbox(f"Beleg auswählen ({len(liste)})", shas, format_func=beschriftung, key="beleg_wahl")
-    pos = shas.index(sha)
+    # Auswahl so breit wie möglich, „Beleg entfernen“ rechts daneben genau so breit wie sein Text
+    with st.container(horizontal=True, vertical_alignment="bottom", key="beleg_auswahl_zeile"):
+        sha = st.selectbox(f"Beleg auswählen ({len(liste)})", shas, format_func=beschriftung, key="beleg_wahl",
+                           width="stretch")
+        pos = shas.index(sha)
+        _beleg_entfernen_knopf(nach_sha[sha], shas[pos + 1] if pos + 1 < len(shas) else None, st)
     # Blättern: schmale Leiste unter der Auswahl – „‹ Vorheriger · Beleg 3 von 11 · Nächster ›“
     with st.container(horizontal=True, horizontal_alignment="distribute", vertical_alignment="center",
                       key="beleg_blaettern"):
@@ -1566,20 +1570,24 @@ def _beleg_ansicht(b: dict, naechster: str | None) -> None:
         else:
             st.warning("Zu diesem Beleg ist kein Analyseergebnis gespeichert.")
 
-        with st.popover("Beleg entfernen", icon=":material/delete:", key=f"beleg_entfernen_{b['sha']}"):
-            st.markdown("**Beleg in den Papierkorb verschieben?**")
-            st.caption("Für falsch hochgeladene Belege – z. B. ein zweiseitiger Beleg, der als zwei einzelne Belege "
-                       "analysiert wurde. Entfernt werden die Analyse, alle Prüfungen und die Originaldatei; der "
-                       "Beleg zählt auch nicht mehr in der Auswertung. Im Papierkorb von Google Drive 30 Tage lang "
-                       "wiederherstellbar. Danach richtig neu hochladen.")
-            if st.button("Ja, in den Papierkorb", type="primary", icon=":material/delete:",
-                         key=f"beleg_entfernen_ja_{b['sha']}"):
-                try:
-                    _beleg_entfernen(b, naechster)
-                except Exception as e:
-                    st.error(f"Entfernen fehlgeschlagen: {e}")
-                else:
-                    st.rerun()
+
+def _beleg_entfernen_knopf(b: dict, naechster: str | None, ort) -> None:
+    """„Beleg entfernen“ neben der Belegauswahl: Popover mit Erklärung und Bestätigung (rot per CSS)."""
+    with ort.popover("Beleg entfernen", icon=":material/delete:", key=f"beleg_entfernen_{b['sha']}",
+                     width="content"):
+        st.markdown("**Beleg in den Papierkorb verschieben?**")
+        st.caption("Für falsch hochgeladene Belege – z. B. ein zweiseitiger Beleg, der als zwei einzelne Belege "
+                   "analysiert wurde. Entfernt werden die Analyse, alle Prüfungen und die Originaldatei; der "
+                   "Beleg zählt auch nicht mehr in der Auswertung. Im Papierkorb von Google Drive 30 Tage lang "
+                   "wiederherstellbar. Danach richtig neu hochladen.")
+        if st.button("Ja, in den Papierkorb", type="primary", icon=":material/delete:",
+                     key=f"beleg_entfernen_ja_{b['sha']}"):
+            try:
+                _beleg_entfernen(b, naechster)
+            except Exception as e:
+                st.error(f"Entfernen fehlgeschlagen: {e}")
+            else:
+                st.rerun()
 
 
 def _beleg_formular(b: dict, modus: str, naechster: str | None, offen_key: str | None = None) -> None:
@@ -2302,13 +2310,26 @@ st.markdown(
     ' --status-ok-hg: #DCFCE7; --status-ok-text: #14532D; --status-nachfrage-hg: #FEE2E2;'
     ' --status-nachfrage-text: #7F1D1D; --status-fehler-hg: #E5E7EB; --status-fehler-text: #1F2937;'
     # Zahl-Plaketten an „Nachfragen offen“/„Ungeprüft“ (Tab „Belege“)
-    ' --plakette-offen-hg: #C25100; --plakette-ungeprueft-hg: #4A5A7A; --plakette-text: #fff;}'
+    ' --plakette-offen-hg: #C25100; --plakette-ungeprueft-hg: #4A5A7A; --plakette-text: #fff;'
+    # „Beleg entfernen“ (Tab „Belege“): leicht rot, damit es auffällt (Text auf Fläche ≥ 4,5:1)
+    ' --loeschen-text: #B42318; --loeschen-flaeche: #FEF1F0; --loeschen-rand: #F3B5AE; --loeschen-hover: #FDE1DE;}'
     'html[data-thema="dunkel"] {--akzent: #F07A2A; --akzent-flaeche: #3A2414; --leise: #A3A9B6; --rand: #3A3E48;'
     ' --knopf-flaeche: #22252D; --daumen-flaeche: #2A2D36; --gesperrt: #4B505C;'
     ' --lq-stark: #4A2B17; --lq-leicht: #2E2219; --lq-text: #FFC9A3;'
     ' --status-ok-hg: #163A26; --status-ok-text: #A7F3C4; --status-nachfrage-hg: #4A1D1D;'
     ' --status-nachfrage-text: #FFC4C4; --status-fehler-hg: #2F333C; --status-fehler-text: #E5E7EB;'
-    ' --plakette-offen-hg: #F07A2A; --plakette-ungeprueft-hg: #A9B8D6; --plakette-text: #14151A;}'
+    ' --plakette-offen-hg: #F07A2A; --plakette-ungeprueft-hg: #A9B8D6; --plakette-text: #14151A;'
+    ' --loeschen-text: #FFA39A; --loeschen-flaeche: #3A1D1B; --loeschen-rand: #7A2E28; --loeschen-hover: #4A2320;}'
+    # „Beleg entfernen“: roter Text/Rahmen, zarte rote Fläche (nur der Knopf im Prüfbereich, nicht die Bestätigung)
+    '[class*="st-key-beleg_entfernen_"]:not([class*="st-key-beleg_entfernen_ja_"]) button'
+    ' {color: var(--loeschen-text); background: var(--loeschen-flaeche); border-color: var(--loeschen-rand);}'
+    '[class*="st-key-beleg_entfernen_"]:not([class*="st-key-beleg_entfernen_ja_"]) button:hover'
+    ' {background: var(--loeschen-hover); border-color: var(--loeschen-text); color: var(--loeschen-text);}'
+    '[class*="st-key-beleg_entfernen_"]:not([class*="st-key-beleg_entfernen_ja_"]) button p'
+    ' {color: var(--loeschen-text); font-weight: 600;}'
+    # Belegauswahl + „Beleg entfernen“ in einer Zeile; am Handy Knopf unter die Auswahl, damit sie lesbar bleibt
+    '@media (max-width: 640px) {.st-key-beleg_auswahl_zeile {flex-wrap: wrap !important;}'
+    ' .st-key-beleg_auswahl_zeile > :first-child {flex: 1 1 100% !important; width: 100% !important;}}'
     # Plaketten: kräftig statt Streamlits blasser Badge-Farben (Reihenfolge der Filter: offen, ungeprüft)
     # Seitenleiste: „Kalender: nicht verbunden“ + kleiner Knopf in einer Zeile
     '.st-key-kalender_zeile {justify-content: space-between;}'

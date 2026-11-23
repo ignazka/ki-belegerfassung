@@ -43,8 +43,13 @@
       text: "Stimmt die Belegart? Dann „Ja“, sonst die richtige auswählen. Falsch gelesene Werte einfach " +
             "überschreiben und kurz begründen – aus diesen Begründungen lernt die KI. Dazu gehört auch das " +
             "Konto (SKR04): Stimmt es nicht, die richtige Nummer eintragen. Auch schon geprüfte Belege " +
-            "lassen sich jederzeit über „Korrigieren“ ändern. Falsch hochgeladen (z. B. zwei Seiten als zwei " +
-            "Belege)? Darunter über „Beleg entfernen“ in den Papierkorb und richtig neu hochladen." },
+            "lassen sich jederzeit über „Korrigieren“ ändern." },
+    { tab: 1, ziel: () => knopfMitText("Beleg entfernen"), titel: "Falsch hochgeladen?",
+      text: "Wurde ein Beleg falsch hochgeladen – z. B. Vorder- und Rückseite als zwei einzelne Belege –, " +
+            "verschiebt „Beleg entfernen“ ihn samt Prüfungen in den Papierkorb von Google Drive. Er zählt dann " +
+            "auch nicht mehr in der Auswertung. Danach richtig neu hochladen: alle Seiten zusammen auswählen " +
+            "und „Alle Dateien gehören zu EINEM Beleg“ wählen. Versehentlich entfernt? Im Drive-Papierkorb " +
+            "30 Tage lang wiederherstellbar." },
     { tab: 2, ziel: () => ersterSichtbarer(".st-key-kategorie_wahl"), titel: "Belegarten",
       text: "Hier legt ihr fest, welche Belegarten die KI kennt und woran sie sie erkennt. Oben eine Kategorie " +
             "auswählen, daneben über „Neue Kategorie“ eine neue anlegen. Beschreibt sie so, wie ihr es einem neuen " +
@@ -108,6 +113,13 @@
   // passende Tab offen ist (Inhalte anderer Tabs sind unsichtbar). Fehlt ein Element (z. B. noch keine
   // Belege), steht das Popup einfach in der Mitte.
   function starten() {
+    // Autostart und Knopf können beide starten, während driver.js noch lädt. Jeder Start bekommt eine neue
+    // Nummer; eine Tour mit veralteter Nummer zeigt keinen Schritt mehr (isActive() wird erst mit dem ersten
+    // Schritt wahr, deshalb reicht laeuft() hier nicht) – so liegen nie zwei Touren übereinander.
+    const nr = (window.__praktikantTourNr || 0) + 1;
+    window.__praktikantTourNr = nr;
+    const aktuell = () => window.__praktikantTourNr === nr;
+    if (window.__praktikantTour) { try { window.__praktikantTour.destroy(); } catch (e) { /* egal */ } }
     let navigiert = false;  // true, solange die Tour selbst umschaltet (dann nicht als „beendet“ werten)
     const n = SCHRITTE.length;
     const tour = window.driver.js.driver({
@@ -119,6 +131,7 @@
       onDestroyed: () => { if (!navigiert) tabOeffnen(0); },
     });
     function zeige(i) {
+      if (!aktuell()) return;
       const s = SCHRITTE[i];
       navigiert = true;
       tour.highlight({
@@ -152,7 +165,7 @@
     }
     function gehe(i) {
       if (i >= n) { tour.destroy(); return; }
-      if (i < 0) return;
+      if (i < 0 || !aktuell()) return;
       const gewechselt = tabOeffnen(SCHRITTE[i].tab);
       setTimeout(() => zeige(i), gewechselt ? 400 : 0);  // Tab-Inhalt erst zeichnen lassen
     }

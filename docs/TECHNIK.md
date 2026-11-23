@@ -227,7 +227,8 @@ Lokal stattdessen eine Zeile je Eintrag in `<art>.jsonl` (Rechte 0700/0600).
 
 - **Nur anhängen, nie überschreiben oder löschen.** Jede Analyse, Prüfung und Kategorie-Änderung ist ein neuer
   Eintrag mit `zeitpunkt` (ISO, Sekunden). Dadurch ist nachvollziehbar, wer wann was gemacht hat.
-- **Ausnahme „Beleg entfernen“** (Tab „Belege“, Popover unter dem Prüfbereich, `App._beleg_entfernen` →
+- **Ausnahme „Beleg entfernen“** (Tab „Belege“, rotes Popover rechts neben der Belegauswahl,
+  `App._beleg_entfernen_knopf` → `App._beleg_entfernen` →
   `storage.beleg_in_papierkorb`): für falsch hochgeladene Belege. Alle Einträge zu diesem `datei_sha256` in
   `analysen/`, `nachfragen/`, `feedback/`, `entscheidungen/` (Dateiname endet auf `_<sha16>.json`; gefiltert im
   Code, weil Drives `name contains` nur Wortanfänge findet) und die Originale aus `belege/`, die kein anderer

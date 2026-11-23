@@ -57,7 +57,9 @@ Tabs (in `App.py`):
 `einfuehrung.py` + `assets/einfuehrung.js`). Neue oder umbenannte Bereiche dort nachziehen. Eigenheiten:
 Tabs werden über ihre Position gewählt und per Zeiger-Ereignissen geöffnet; jeder Schritt wird mit
 `highlight()` einzeln gezeigt, weil Ziele in unsichtbaren Tabs erst nach dem Wechsel existieren (0,8 s später
-`refresh()`, weil große Tabellen die Seite noch verschieben können); im
+`refresh()`, aber nur wenn die Markierung verrutscht ist – sonst gehen „Weiter“-Klicks verloren); jeder Start
+bekommt eine Nummer (`__praktikantTourNr`), ältere Starts zeigen nichts mehr – Autostart und Knopf liefen sonst
+als zwei Touren übereinander. Browser-Skripte setzen vorab `praktikantai_tour_gesehen`; im
 Skript jedes `<` vor Buchstaben als `<` maskieren (sonst entfernt Streamlits HTML-Filter das `<script>`).
 
 **Belegansicht** (`_beleg_vorschau`): die aktuelle Seite groß neben dem Formular (Belegspalte so hoch wie

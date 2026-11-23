@@ -31,6 +31,10 @@ try {
   const cdp = (method, params = {}) => new Promise((r) => { const n = ++id; offen.set(n, r); ws.send(JSON.stringify({ id: n, method, params })); });
   const js = async (expr) => (await cdp("Runtime.evaluate", { expression: expr, returnByValue: true, awaitPromise: true })).result?.result?.value;
   await cdp("Runtime.enable");
+  await cdp("Page.enable");
+  // Autostart beim ersten Besuch unterdrücken – sonst laufen Autostart-Tour und die per Knopf gestartete
+  // übereinander, und jeder „Weiter“-Klick bedient abwechselnd eine von beiden (Schritte doppelt gezählt).
+  await cdp("Page.addScriptToEvaluateOnNewDocument", { source: "try { localStorage.setItem('praktikantai_tour_gesehen', '1') } catch (e) {}" });
   await cdp("Emulation.setDeviceMetricsOverride", { width: +breite, height: +hoehe, deviceScaleFactor: 1, mobile: +breite < 700 });
   await cdp("Page.navigate", { url });
   for (let i = 0; i < 80 && !(await js("!!document.querySelector('.st-key-einfuehrung_start button')")); i++) await warte(500);

@@ -245,7 +245,7 @@ Mini-Vorschauen zum Springen), rechts:
 
 Nach dem Speichern steht oben die Gegenüberstellung der gerade gespeicherten Prüfung.
 
-**Falsch hochgeladen?** Unter dem Prüfbereich verschiebt **„Beleg entfernen“** den Beleg mit Analyse, allen
+**Falsch hochgeladen?** Oben rechts neben der Belegauswahl verschiebt **„Beleg entfernen“** (rot) den Beleg mit Analyse, allen
 Prüfungen und der Originaldatei in den Papierkorb von Google Drive (30 Tage wiederherstellbar). Er verschwindet
 aus der Liste und zählt nicht mehr in der Auswertung; danach richtig neu hochladen. Originaldateien, die ein
 anderer Beleg ebenfalls nutzt, bleiben liegen.
