@@ -212,3 +212,17 @@ def test_beispielbelege_zum_pruefen_ablegen():
     assert len(A.SPEICHER["analysen"]) == 2
     meldung = " ".join(w.value for w in at.warning)
     assert "2 lag(en) schon dort" in meldung and "analysiert" not in meldung, meldung
+
+
+def test_entwurf_gut_sichtbar_als_nicht_aktiv():
+    entwurf = {"schluessel": "reisekosten", "name": "Reisekosten - Mitarbeiter", "status": "entwurf", "version": 1,
+               "zeitpunkt": "2026-11-17T17:30:01", "beschreibung": "Bahn, Flug"}
+    at = A.app(kategorien=[entwurf])
+    A.keine_fehler(at)
+    oben = [w.value for w in at.warning]
+    assert any("noch Entwurf und damit nicht aktiv" in w and "„Reisekosten - Mitarbeiter“" in w for w in oben), oben
+    at.selectbox(key="kategorie_wahl").set_value("reisekosten").run()
+    assert any("Entwurf – nicht aktiv" in w.value for w in at.warning)
+    # aktive Kategorie: kein Hinweis
+    at = A.app(kategorien=[{**entwurf, "status": "aktiv"}])
+    assert not any("Entwurf" in w.value for w in at.warning)

@@ -264,7 +264,9 @@ Dateien: `kategorien.py`, `prompts.py` (`system_prompt`, `prompt_version`), `App
 - **Status**: „Entwurf“ wird gespeichert, aber noch nicht verwendet. „Aktiv“ fließt ab sofort in jede
   Analyse ein. Entwürfe erscheinen in der Belegart-Auswahl im Tab „Belege“ als „(Entwurf)“,
   damit eine neu angelegte Kategorie sofort auswählbar ist – der KI-Prompt und die Prüfung ihrer Antworten
-  nutzen aber nur aktive Kategorien.
+  nutzen aber nur aktive Kategorien. Damit das nicht übersehen wird, steht oben im Tab „Kategorien“ ein gelber
+  Hinweis mit allen Entwürfen („noch Entwurf und damit nicht aktiv“) und bei einer ausgewählten
+  Entwurfs-Kategorie direkt unter dem Namen „Entwurf – nicht aktiv“ mit der Anleitung zum Aktivieren.
 - **Jede Änderung ist eine neue Version** (`kategorien/`) mit Person und Zeitpunkt. Löschen ist ebenfalls
   nur eine neue Version mit Status „gelöscht“, der Verlauf bleibt erhalten.
 - **Lesbare Kopie im Drive**: Pro Kategorie ein Google-Doc „Kategorie-Beschreibung (aus der App)“ in

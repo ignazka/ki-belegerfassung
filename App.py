@@ -1655,6 +1655,16 @@ def zeige_kategorien():
 
     sichtbare = kat_sichtbar(KAT_STAND)
     optionen = list(sichtbare)
+    # Entwürfe gut sichtbar: gespeichert, aber die KI kennt sie noch nicht (stehen nicht im Prompt)
+    entwuerfe = [v["name"] for v in sichtbare.values() if v.get("status") != "aktiv"]
+    if entwuerfe:
+        st.warning(
+            f"**{'Eine Kategorie ist' if len(entwuerfe) == 1 else f'{len(entwuerfe)} Kategorien sind'} noch Entwurf "
+            f"und damit nicht aktiv:** {', '.join(f'„{n}“' for n in entwuerfe)}. Die KI kennt "
+            f"{'sie' if len(entwuerfe) == 1 else 'diese Kategorien'} noch nicht und ordnet keine Belege "
+            "zu. Zum Aktivieren die Kategorie auswählen, unten bei „Status“ „Aktiv“ wählen und speichern.",
+            icon=":material/edit_note:",
+        )
     # Vorschläge aus „Aus Korrekturen lernen“ (Tab Auswertung) als ungespeicherte Änderung einsetzen
     for v in ss.pop("kategorie_vorschlaege_naechste", []):
         if v["key"] not in sichtbare:
@@ -1696,6 +1706,11 @@ def zeige_kategorien():
 
     st.divider()
     st.subheader("Neue Kategorie" if wahl == _NEU else k["name"])
+    if wahl != _NEU and k.get("status") != "aktiv":
+        with st.container(key="kategorie_entwurf_hinweis"):
+            st.warning("**Entwurf – nicht aktiv.** Diese Kategorie ist gespeichert, wird aber bei der Analyse noch "
+                       "nicht verwendet. Unten bei „Status“ „Aktiv“ wählen und speichern – am besten vorher mit "
+                       "„Testen“ ausprobieren.", icon=":material/edit_note:")
     if ss.get(f"{praefix}_lernvorschlag"):
         st.info("**Aus Korrekturen übernommen – noch nicht gespeichert:**\n\n"
                 + "\n".join(f"- {t}" for t in ss[f"{praefix}_lernvorschlag"])
