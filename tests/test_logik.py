@@ -311,6 +311,20 @@ assert abgleichen(ohne_zeit, [_t("Team-Essen Domhof", "2026-09-04T12:00", "2026-
 # Termin am Tag, aber falsche Zeit und anderer Ort -> Nachfrage, Termin als Kandidat
 ab = abgleichen(essen, [_t("Zahnarzt", "2026-09-04T08:00", "2026-09-04T09:00", ort="Mannheim")])
 assert ab.status == "kein_termin" and len(ab.kandidaten) == 1 and ab.nachfrage_grund
+# passt nur zur Uhrzeit, klingt aber nicht nach Essen -> Nachfrage mit Titel im Grund
+ab = abgleichen(essen, [_t("Zahnarzt", "2026-09-04T17:00", "2026-09-04T18:00")])
+assert ab.status == "kein_termin" and "Zahnarzt" in ab.grund and len(ab.kandidaten) == 1, ab
+# … „Interessenten“ und „Messen“ sind kein Essen, „Mittagessen“/„Lunch“ schon
+for titel, ok in [("Interessenten-Gespräch", False), ("Messen planen", False), ("Mittagessen Team", True),
+                  ("Lunch mit Kunde", True), ("Geschäftsessen", True), ("Frühstück Vorstand", True)]:
+    st_ = abgleichen(essen, [_t(titel, "2026-09-04T17:00", "2026-09-04T18:00")]).status
+    assert st_ == ("passend" if ok else "kein_termin"), (titel, st_)
+# Essenshinweis in der Beschreibung zählt auch
+t_ = _t("Kunde Müller", "2026-09-04T17:00", "2026-09-04T18:00")
+t_.beschreibung = "Abendessen, danach Vertrag besprechen"
+assert abgleichen(essen, [t_]).status == "passend"
+# Name/Stadt im Termin reicht weiterhin ohne Essenshinweis
+assert abgleichen(essen, [_t("Kunde Müller", "2026-09-04T10:00", "2026-09-04T11:00", ort="Speyer")]).status == "passend"
 # gar kein Termin
 assert abgleichen(essen, []).status == "kein_termin"
 # Übernachtung: mehrtägige Reise über das Rechnungsdatum bzw. Ort im Termin

@@ -4,16 +4,20 @@ Zu Bewirtungen und Übernachtungen muss es einen passenden Kalendertermin geben.
 geht der Beleg zur Nachfrage. Ist ein Termin gefunden, liefert er Teilnehmer und Anlass als Vorschlag
 für den Bewirtungsbeleg.
 
-Konfiguration in den Secrets:
-    [kalender]
-    kalender_id = "firma@group.calendar.google.com"   # oder die E-Mail-Adresse des Kalenders
-
-Der Zugriff läuft über denselben Google-Token wie Drive (drive_token_holen.py fragt beide Rechte an).
+Zugang (Laden der Termine in storage.kalender_abgleichen, dieses Modul enthält nur Lesen + Regeln):
+- Normalfall: In der Seitenleiste „Kalender verbinden“ (kalender_verbindung.py) – eigener Google-Zugang nur
+  zum Lesen, gespeichert in kalender_zugang/; abgeglichen werden alle dort gewählten Kalender (doppelte
+  Termine zählen einmal).
+- Älterer Weg, nur wenn in der App nichts verbunden ist: Secrets
+      [kalender]
+      kalender_id = "firma@group.calendar.google.com"
+      refresh_token = "…"   # optional, sonst der Drive-Token (drive_token_holen.py fragt beide Rechte an)
 
 Regeln (bewusst einfach und nachvollziehbar, Werte unten anpassbar):
-- Bewirtung: Termin am Belegdatum. Passend, wenn er zeitlich zur Uhrzeit auf dem Beleg passt
-  (Termin beginnt höchstens BEWIRTUNG_VORHER_H Stunden vor der Zahlung und endet frühestens
-  BEWIRTUNG_NACHHER_H Stunden davor) ODER Restaurantname/Stadt in Titel, Ort oder Beschreibung vorkommt.
+- Bewirtung: Termin am Belegdatum. Passend, wenn Restaurantname/Stadt in Titel, Ort oder Beschreibung
+  vorkommt ODER er zeitlich zur Uhrzeit auf dem Beleg passt (beginnt höchstens BEWIRTUNG_VORHER_H Stunden
+  vor der Zahlung, endet frühestens BEWIRTUNG_NACHHER_H Stunden davor) UND nach Essen klingt
+  (ESSENS_HINWEISE). Uhrzeit allein reicht nicht – sonst gälte z. B. „Zahnarzt“ als Geschäftsessen.
 - Übernachtung: Termin im Zeitraum ÜBERNACHTUNG_TAGE vor bis 1 Tag nach dem Belegdatum, der mehrtägig ist
   oder dessen Titel/Ort Hotel bzw. Stadt nennt.
 """
@@ -32,6 +36,11 @@ BEWIRTUNG_NACHHER_H = 1    # ... und muss spätestens so viele Stunden vor der Z
 UEBERNACHTUNG_TAGE = 14    # Hotelrechnung kommt am Abreisetag; Reise kann bis zu so viele Tage vorher beginnen
 
 KALENDER_KATEGORIEN = set(BEWIRTUNG_KATEGORIEN) | {"uebernachtung"}
+# Wortanfänge, an denen ein Termin als Essen erkennbar ist (ohne Umlaute, siehe _norm). Dazu jedes Wort,
+# das auf „essen“ endet (Abendessen, Arbeitsessen, Teamessen …) – außer „Interessen“ u. Ä.
+ESSENS_HINWEISE = ("mittag", "lunch", "dinner", "fruhstuck", "brunch", "bewirtung", "restaurant", "kaffee",
+                   "cafe", "bistro", "imbiss")
+_KEIN_ESSEN = ("interessen", "messen")
 _FUELLWOERTER = {"gmbh", "co", "kg", "ag", "ug", "mbh", "restaurant", "hotel", "gasthaus", "gaststaette",
                  "cafe", "bar", "und", "der", "die", "das", "im", "am", "zum", "zur", "the", "inh", "inhaber"}
 
@@ -110,6 +119,16 @@ def _erwaehnt(termin: Termin, analyse: BelegAnalyse) -> str | None:
     return None
 
 
+def klingt_nach_essen(termin: Termin) -> bool:
+    """Deutet Titel, Ort oder Beschreibung auf ein Essen hin (Mittag, Abendessen, Lunch, Bewirtung …)?"""
+    for w in re.findall(r"[a-z0-9]+", _norm(f"{termin.titel} {termin.ort} {termin.beschreibung}")):
+        if w.startswith(ESSENS_HINWEISE):
+            return True
+        if w.endswith("essen") and not w.endswith(_KEIN_ESSEN):
+            return True
+    return False
+
+
 def _zahlzeit(analyse: BelegAnalyse) -> datetime | None:
     if not analyse.datum:
         return None
@@ -151,6 +170,7 @@ def _abgleich_bewirtung(analyse: BelegAnalyse, termine: list[Termin]) -> Abgleic
     zahlung = _zahlzeit(analyse)
     hat_uhrzeit = bool(analyse.uhrzeit)
     bester, begruendung = None, ""
+    nur_zeitlich = []  # passen zur Uhrzeit, klingen aber nicht nach Essen -> zählen nicht
     for t in am_tag:
         erwaehnt = _erwaehnt(t, analyse)
         zeitlich = (not t.ganztags and hat_uhrzeit
@@ -159,12 +179,20 @@ def _abgleich_bewirtung(analyse: BelegAnalyse, termine: list[Termin]) -> Abgleic
         if erwaehnt and zeitlich:
             return Abgleich("passend", f"Termin passt zeitlich und nennt {erwaehnt}.", t,
                             [k for k in am_tag if k is not t])
-        if (erwaehnt or zeitlich) and bester is None:
+        essen = zeitlich and klingt_nach_essen(t)
+        if zeitlich and not essen:
+            nur_zeitlich.append(t)
+        if (erwaehnt or essen) and bester is None:
             bester = t
             begruendung = (f"Termin nennt {erwaehnt}." if erwaehnt
-                           else f"Termin passt zeitlich zur Zahlung um {analyse.uhrzeit} Uhr.")
+                           else f"Essenstermin passt zeitlich zur Zahlung um {analyse.uhrzeit} Uhr.")
     if bester:
         return Abgleich("passend", begruendung, bester, [k for k in am_tag if k is not bester])
+    if nur_zeitlich:
+        titel = ", ".join(f"„{t.titel}“" for t in nur_zeitlich)
+        return Abgleich("kein_termin",
+                        f"{titel} passt zur Uhrzeit, klingt aber nicht nach einem Essen und nennt weder "
+                        "Restaurant noch Ort – bitte prüfen, ob das die Bewirtung war.", None, am_tag)
     if am_tag:
         return Abgleich("kein_termin",
                         f"am {datum_de(analyse.datum)} gibt es {len(am_tag)} Termin(e), aber keiner passt "

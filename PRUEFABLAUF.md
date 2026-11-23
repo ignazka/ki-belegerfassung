@@ -188,7 +188,7 @@ Zu jeder **Bewirtung** und **Übernachtung** muss es einen passenden Termin im G
 
 | Belegart | passend, wenn … |
 |---|---|
-| Bewirtung | ein Termin am Belegdatum zeitlich zur Zahlung passt (beginnt höchstens 5 Std. vorher, endet frühestens 1 Std. vorher) **oder** Restaurantname bzw. Stadt in Titel, Ort oder Beschreibung steht |
+| Bewirtung | ein Termin am Belegdatum Restaurantname bzw. Stadt in Titel, Ort oder Beschreibung nennt, **oder** zeitlich zur Zahlung passt (beginnt höchstens 5 Std. vorher, endet frühestens 1 Std. vorher) **und** nach Essen klingt (z. B. Mittagessen, Abendessen, Lunch, Dinner, Frühstück, Bewirtung). Passt ein Termin nur zur Uhrzeit (z. B. „Zahnarzt“), gibt es eine Nachfrage |
 | Übernachtung | ein Termin rund um das Rechnungsdatum (bis 1 Tag davor) Hotel oder Stadt nennt, **oder** genau eine mehrtägige Reise über das Datum läuft |
 
 - Gefunden: Die App zeigt den Termin und schlägt dessen **Teilnehmer** als „bewirtete Personen“ vor.
