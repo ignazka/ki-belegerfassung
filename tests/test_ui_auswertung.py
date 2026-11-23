@@ -22,14 +22,20 @@ def _metrik(at, label):
 
 
 def test_kennzahlen():
-    at = A.app(**_daten())
-    assert _metrik(at, "Belege") == "3"
-    assert _metrik(at, "Geprüft") == "2 von 3"
-    assert _metrik(at, "Nachfragen der KI") == "2"
-    assert _metrik(at, "Unnötige Nachfragen") == "1 von 1"
-    assert _metrik(at, "Geprüfte Belege") == "2"            # „ok“ zählt einmal (jüngste Prüfung)
-    assert _metrik(at, "Belegart richtig") == "1 von 2"
-    assert _metrik(at, "Alle Felder richtig") == "1 von 2"
+    daten = _daten()
+    # alles richtig, aber Ausland/Kalender: ohnehin nötig -> zählt nicht als unnötige Nachfrage
+    daten["analysen"].append(A.analyse_eintrag("n3", gruende=[
+        "Auslandsbeleg – dafür gilt eine abweichende Handhabe.", "Kalender: kein Termin am 04.09.2026 gefunden."]))
+    daten["feedback"].insert(1, A.bewertung("n3"))
+    at = A.app(**daten)
+    assert _metrik(at, "Belege") == "4"
+    assert _metrik(at, "Geprüft") == "3 von 4"
+    assert _metrik(at, "Nachfragen der KI") == "3"
+    assert _metrik(at, "Unnötige Nachfragen") == "1 von 2"   # n3 war wegen Ausland/Kalender ohnehin nötig
+    assert next(m for m in at.metric if m.label == "Unnötige Nachfragen").delta == "1 waren ohnehin nötig"
+    assert _metrik(at, "Geprüfte Belege") == "3"            # „ok“ zählt einmal (jüngste Prüfung)
+    assert _metrik(at, "Belegart richtig") == "2 von 3"
+    assert _metrik(at, "Alle Felder richtig") == "2 von 3"
 
 
 def test_aus_korrekturen_lernen_bis_kategorie():

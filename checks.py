@@ -129,6 +129,17 @@ def _gruende_mit_art(a: BelegAnalyse, befunde: list[str]) -> list[tuple[str, boo
     return gruende
 
 
+# Gespeicherte Nachfragegründe, bei denen ein Mensch IMMER draufschauen muss – auch wenn die KI alles richtig
+# gelesen hat. Sie zählen in der Auswertung nicht als „unnötige Nachfrage“ (die soll zu strenge Regeln zeigen).
+# Fachliche Gründe aus _gruende_mit_art (Test hält beides gleich) + Kalender, Seitenlimit, technische Absicherung.
+_IMMER_BERECHTIGT = ("Nur Zahlungsnachweis", "Auslandsbeleg", "Konto unsicher", "Ungewöhnlicher Steuersatz",
+                     "Kalender:", "Großes Modell nicht verfügbar", "Nur das große Modell konnte")
+
+
+def immer_berechtigt(grund: str) -> bool:
+    return grund.startswith(_IMMER_BERECHTIGT) or bool(re.match(r"Nur \d+ von \d+ Seiten gelesen", grund))
+
+
 def nachfragen_gruende(a: BelegAnalyse, befunde: list[str]) -> list[str]:
     """Gründe, warum ein Mensch draufschauen muss. Leere Liste = kann automatisch weiter."""
     return [text for text, _fachlich in _gruende_mit_art(a, befunde)]

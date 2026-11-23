@@ -160,6 +160,22 @@ assert nachfragen_gruende(BelegAnalyse.model_validate({"kategorie": "sonstiger_b
                                                        "brutto": 5}), [])
 assert BelegAnalyse.model_validate({"ec_passt_zur_rechnung": "null"}).ec_passt_zur_rechnung is None
 
+# Nachfragegründe, die immer einen Menschen brauchen (zählen nicht als „unnötige Nachfrage“) –
+# muss zur Einordnung „fachlich“ in _gruende_mit_art passen
+from checks import _gruende_mit_art, immer_berechtigt  # noqa: E402
+
+_faelle = [aral.model_copy(update=u) for u in (
+    {"kategorie": "nur_ec_beleg"}, {"ausland": True}, {"konto_unsicher": True, "konto_grund": "x"},
+    {"steuersaetze": [16]}, {"kategorie_unsicher": True}, {"fehlende_pflichtangaben": ["Name"]}, {"lesbar": False},
+    {"kategorie": "sonstiger_beleg"}, {"brutto": None}, {"ec_passt_zur_rechnung": False})]
+for fall in _faelle:
+    for text, fachlich in _gruende_mit_art(fall, ["Summe passt nicht"]):
+        assert immer_berechtigt(text) == fachlich, (text, fachlich)
+for text in ("Kalender: kein Termin am 04.09.2026 gefunden.", "Nur 20 von 23 Seiten gelesen (Obergrenze 20).",
+             "Großes Modell nicht verfügbar (503).", "Nur das große Modell konnte den Beleg lesen – ohne Gegenprobe."):
+    assert immer_berechtigt(text), text
+assert not immer_berechtigt("Unsicher gelesen – Datum: 01.01.2026 / 02.01.2026")
+
 # Doppelt-Lesen: Vergleich zweier Lesungen
 from checks import abweichungen  # noqa: E402
 

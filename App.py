@@ -38,6 +38,7 @@ import pandas as pd
 import skr04
 from kategorien import LERN_PROMPT, URSACHEN, lern_antwort_pruefen, lern_nachricht
 import lesequalitaet
+from checks import immer_berechtigt
 from prompts import prompt_version, system_prompt
 from storage import (
     AblageFehler,
@@ -763,7 +764,10 @@ def zeige_auswertung():
         st.markdown("**Belege und Nachfragen**")
         nf = [b for b in belege if b["gruende"]]
         nf_geprueft = [b for b in nf if b.get("bewertung")]
-        unnoetig = sum(1 for b in nf_geprueft if _fehlerfrei(b["bewertung"]))
+        # „Unnötig“: alles stimmte UND kein Grund, bei dem ohnehin ein Mensch schauen muss (Ausland, Kalender …)
+        berechtigt = sum(1 for b in nf_geprueft if any(immer_berechtigt(g) for g in b["gruende"]))
+        unnoetig = sum(1 for b in nf_geprueft if _fehlerfrei(b["bewertung"])
+                       and not any(immer_berechtigt(g) for g in b["gruende"]))
         geprueft = sum(1 for b in belege if b.get("bewertung"))
         offen = sum(1 for b in nf if b["status"] == "offen")
         c1, c2, c3, c4 = st.columns(4)
@@ -773,7 +777,11 @@ def zeige_auswertung():
         c3.metric("Nachfragen der KI", len(nf), f"{offen} offen" if offen else "alle erledigt", delta_color="off",
                   delta_arrow="off", help="Belege, bei denen die KI unsicher war oder eine Prüfung nicht aufging.")
         c4.metric("Unnötige Nachfragen", f"{unnoetig} von {len(nf_geprueft)}" if nf_geprueft else "–",
-                  help="Die KI hat nachgefragt, bei der Prüfung war aber alles richtig. Viele unnötige Nachfragen "
+                  f"{berechtigt} waren ohnehin nötig" if berechtigt else None, delta_color="off", delta_arrow="off",
+                  help="Geprüfte Nachfragen, bei denen alles richtig war und kein Grund vorlag, bei dem ohnehin ein "
+                       "Mensch schauen muss. Nicht mitgezählt werden Nachfragen wegen Auslandsbeleg, nur EC-Beleg, "
+                       "ungewöhnlichem Steuersatz, unsicherem Konto, fehlendem Kalendertermin, zu vielen Seiten oder "
+                       "technischer Absicherung – die sind auch bei richtigem Lesen nötig. Viele unnötige Nachfragen "
                        "= Regeln zu streng.")
         st.divider()
     if not alle:

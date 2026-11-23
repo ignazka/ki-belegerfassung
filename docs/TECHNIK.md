@@ -168,7 +168,9 @@ Auswertung), `erwartet_fuer` nimmt deren Belegart als Erwartung.
 ### 5.3 Messen (Tab „Auswertung“)
 
 - **Erkennungsqualität:** jede geprüfte Belegprüfung zählt einmal (jüngste pro Hash): Belegart richtig,
-  alle Felder richtig, je Feld, je Belegart, Verwechslungen; Belege/geprüft/Nachfragen/unnötige Nachfragen.
+  alle Felder richtig, je Feld, je Belegart, Verwechslungen; Belege/geprüft/Nachfragen/unnötige Nachfragen
+  („unnötig“ = alles richtig und kein Grund, der laut `checks.immer_berechtigt` ohnehin einen Menschen braucht –
+  Ausland, nur EC-Beleg, Steuersatz, Konto, Kalender, Seitenlimit, technische Absicherung).
 - **Lesequalität** (`lesequalitaet.py`): jede gespeicherte Lesung (Original, Kontrast, Schiedsrichter) wird
   Feld für Feld mit dem richtigen Wert verglichen → wo wird falsch gelesen, bringen zweite Lesung und
   Schiedsrichter etwas?
