@@ -171,6 +171,14 @@ assert diff["Gesamtbetrag"] == ("133,40 €", "138,40 €")
 # Schreibweise des Namens ist kein Lesefehler
 assert abweichungen(aral, aral.model_copy(update={"restaurant_name": "ARAL Tankstelle Speyer"})) == {}
 assert "Aussteller" in abweichungen(aral, aral.model_copy(update={"restaurant_name": "Shell"}))
+# Uhrzeit: Schreibweise egal, andere Zeit oder fehlende Zeit ist eine Abweichung
+mit_zeit = domhof.model_copy(update={"uhrzeit": "18:30"})
+for gleich in ("18.30", "18:30:12", "18:30 Uhr"):
+    assert abweichungen(mit_zeit, domhof.model_copy(update={"uhrzeit": gleich})) == {}, gleich
+assert abweichungen(domhof.model_copy(update={"uhrzeit": "8:05"}),
+                    domhof.model_copy(update={"uhrzeit": "08:05"})) == {}
+assert abweichungen(mit_zeit, domhof.model_copy(update={"uhrzeit": "16:30"})) == {"Uhrzeit": ("18:30", "16:30")}
+assert "Uhrzeit" in abweichungen(mit_zeit, domhof.model_copy(update={"uhrzeit": None}))
 
 # Cent-genaues Rechnen (keine Float-Fehler)
 from beleg_schema import differenz, mwst_aus_brutto, mwst_aus_netto, summe  # noqa: E402

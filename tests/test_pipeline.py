@@ -131,3 +131,11 @@ def test_einordnung_der_gruende():
     assert not nur_fachliche_gruende(analyse(fehlende_pflichtangaben=["Anlass"]), [])
     assert not nur_fachliche_gruende(analyse(ec_passt_zur_rechnung=False), [])
     assert not nur_fachliche_gruende(analyse(lesbar=False), [])
+
+
+def test_uhrzeit_abweichung_ruft_schiedsrichter(pipeline, monkeypatch):
+    aufrufe = ki(pipeline, monkeypatch, {**SAUBER, "uhrzeit": "18:30"}, {**SAUBER, "uhrzeit": "16:30"},
+                 gross={**SAUBER, "uhrzeit": "18:30"})
+    erg = pipeline.beleg_lesen([b"BILD"])
+    assert "gross" in aufrufe and erg.abweichungen == {"Uhrzeit": ("18:30", "16:30")}
+    assert erg.ungeklaert == [] and erg.analyse.uhrzeit == "18:30"

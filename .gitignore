@@ -3,4 +3,4 @@ venv/
 __pycache__/
 data/
 .streamlit/secrets.toml
-NACHSCHLAG_KALENDER.md
+NACHSCHLAG_*.md

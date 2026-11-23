@@ -3,6 +3,7 @@
 Das Modell liest nur ab; alles Rechnen und Gegenprüfen passiert hier.
 """
 
+import re
 from datetime import date
 
 from beleg_schema import (
@@ -145,6 +146,12 @@ def _text_norm(s: str | None) -> str:
     return "".join(ch for ch in (s or "").casefold() if ch.isalnum())
 
 
+def _uhrzeit_norm(s: str | None) -> str:
+    """'18:30', '18.30', '18:30:12', '8:05 Uhr' -> '18:30' bzw. '08:05'; Unlesbares bleibt als Text."""
+    treffer = re.match(r"^\s*(\d{1,2})[:.](\d{2})", s or "")
+    return f"{int(treffer.group(1)):02d}:{treffer.group(2)}" if treffer else _text_norm(s)
+
+
 def vergleichswerte(a: BelegAnalyse) -> dict[str, str]:
     """Die Felder, die beim Doppelt-Lesen übereinstimmen müssen – normalisiert, als Anzeigetext."""
     zeilen = sorted(
@@ -156,6 +163,7 @@ def vergleichswerte(a: BelegAnalyse) -> dict[str, str]:
         "Belegnummer": _text_norm(a.belegnummer),
         "Aussteller": _text_norm(a.restaurant_name),
         "Datum": a.datum or "",
+        "Uhrzeit": _uhrzeit_norm(a.uhrzeit),  # wichtig für Kalenderabgleich und EC-Beleg
         "Gesamtbetrag": _eur(a.brutto) if a.brutto is not None else "",
         "EC-Betrag": _eur(a.ec_betrag) if a.ec_betrag is not None else "",
         "MwSt.-Aufstellung": "; ".join(
@@ -179,5 +187,6 @@ def abweichungen(a: BelegAnalyse, b: BelegAnalyse) -> dict[str, tuple[str, str]]
 
 def anzeige_wert(feld: str, a: BelegAnalyse) -> str:
     """Wert eines Vergleichsfelds lesbar (nicht normalisiert) für Meldungen."""
-    roh = {"Belegnummer": a.belegnummer, "Aussteller": a.restaurant_name, "Datum": datum_de(a.datum)}
+    roh = {"Belegnummer": a.belegnummer, "Aussteller": a.restaurant_name, "Datum": datum_de(a.datum),
+           "Uhrzeit": a.uhrzeit}
     return (roh.get(feld) if feld in roh else vergleichswerte(a)[feld]) or "–"

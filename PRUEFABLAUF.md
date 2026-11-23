@@ -128,9 +128,10 @@ Alles über dieser Toleranz gilt als Ablesefehler. Die Toleranzen stehen an eine
 
 Datei: `checks.py` (`abweichungen`)
 
-Verglichen werden: Belegart, Belegnummer, Aussteller, Datum, Gesamtbetrag, EC-Betrag und die
-MwSt.-Aufstellung. Groß-/Kleinschreibung, Leer- und Satzzeichen zählen nicht. Beim Namen gilt
-„Aral“ = „ARAL Tankstelle Speyer“ (der eine Name ist im anderen enthalten).
+Verglichen werden: Belegart, Konto, Belegnummer, Aussteller, Datum, Uhrzeit, Gesamtbetrag, EC-Betrag und
+die MwSt.-Aufstellung. Groß-/Kleinschreibung, Leer- und Satzzeichen zählen nicht. Beim Namen gilt
+„Aral“ = „ARAL Tankstelle Speyer“ (der eine Name ist im anderen enthalten). Bei der Uhrzeit zählen nur
+Stunde und Minute („18.30“ = „18:30:12“); liest nur eine Lesung eine Uhrzeit, ist das eine Abweichung.
 
 ## 6. Schiedsrichter: größeres Modell bei Zweifel
 
