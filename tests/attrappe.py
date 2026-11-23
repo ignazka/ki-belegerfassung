@@ -83,6 +83,7 @@ def einsetzen() -> None:
     from kalender import Abgleich
 
     storage._drive = _gesperrt  # Sicherheitsnetz
+    storage._drive_dienst_bauen = _gesperrt  # paralleles Laden baut eigene Verbindungen
     storage.ablage_pruefen = lambda: None
     storage.ablage_link = lambda: None
     def lader(art):

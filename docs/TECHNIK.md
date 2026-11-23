@@ -222,6 +222,10 @@ Lokal stattdessen eine Zeile je Eintrag in `<art>.jsonl` (Rechte 0700/0600).
 - **Caching:** Die Dateiliste eines Unterordners wird 5 Minuten gecacht, jede einzelne Datei dauerhaft (Dateien
   ändern sich nie). Eigene Schreibvorgänge leeren den Listen-Cache sofort; Einträge anderer Benutzer erscheinen
   nach spätestens 5 Minuten.
+- **Paralleles Laden:** Noch nicht geladene Dateien holt `storage._drive_jsons_holen` mit `DRIVE_PARALLEL` = 8
+  gleichzeitig, jeder Thread mit eigener Drive-Verbindung (der HTTP-Client ist nicht thread-sicher), bei 429/5xx
+  bis zu 3 Wiederholungen. Geladene Einträge liegen in `storage._JSON_CACHE` (Speicher des Servers, alle
+  Sitzungen). Gemessen 2026-11-23: Kaltstart der App 45 s → 24 s; pro Datei sonst knapp 1 s nacheinander.
 
 ### 6.3 Einträge (vereinfacht)
 

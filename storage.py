@@ -168,17 +168,54 @@ def _drive_beleg_speichern(file_bytes: bytes, name: str) -> str:
     return f"belege/{name}"
 
 
-@st.cache_data(show_spinner=False)
-def _drive_json_laden(file_id: str) -> dict | None:
-    """Feedback-Dateien werden nie geändert -> pro Datei-ID dauerhaft cachen, nur neue werden geladen."""
-    try:
-        return json.loads(_drive().files().get_media(fileId=file_id, **_ALLE_ABLAGEN).execute())
-    except (json.JSONDecodeError, UnicodeDecodeError):
-        return None
+# Einträge (feedback/, analysen/ …) werden nie geändert, nur neue angehängt -> pro Datei-ID dauerhaft im
+# Speicher (für alle Sitzungen des Servers). Nur Dateien, die hier noch fehlen, werden geladen – parallel.
+_JSON_CACHE: dict[str, dict | None] = {}
+DRIVE_PARALLEL = 8     # gleichzeitige Downloads (Drive erlaubt deutlich mehr; mehr bringt kaum noch etwas)
+DRIVE_WIEDERHOLUNGEN = 3  # bei 429/5xx automatisch erneut (googleapiclient wartet dazwischen exponentiell)
+
+
+def _drive_dienst_bauen(creds):
+    """Eigene Verbindung – der HTTP-Client von googleapiclient ist nicht thread-sicher."""
+    from googleapiclient.discovery import build
+
+    return build("drive", "v3", credentials=creds, cache_discovery=False)
+
+
+def _drive_jsons_holen(file_ids: list[str]) -> None:
+    """Fehlende Einträge parallel laden und in _JSON_CACHE legen (jeder Thread mit eigener Verbindung)."""
+    import threading
+    from concurrent.futures import ThreadPoolExecutor
+
+    fehlend = list(dict.fromkeys(i for i in file_ids if i not in _JSON_CACHE))
+    if not fehlend:
+        return
+    cfg = _drive_config()
+    creds = _drive_credentials(cfg["refresh_token"], cfg["client_id"], cfg["client_secret"])
+    lokal = threading.local()
+
+    def holen(file_id: str) -> tuple[str, dict | None]:
+        if not hasattr(lokal, "dienst"):
+            lokal.dienst = _drive_dienst_bauen(creds)
+        roh = lokal.dienst.files().get_media(fileId=file_id, **_ALLE_ABLAGEN).execute(
+            num_retries=DRIVE_WIEDERHOLUNGEN)
+        try:
+            return file_id, json.loads(roh)
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            return file_id, None  # defekte Datei überspringen statt alles zu blockieren
+
+    with ThreadPoolExecutor(max_workers=min(DRIVE_PARALLEL, len(fehlend))) as pool:
+        for file_id, daten in pool.map(holen, fehlend):  # Ergebnisse im aufrufenden Thread einsortieren
+            _JSON_CACHE[file_id] = daten
 
 
 @st.cache_data(ttl=300, show_spinner="Lade Daten aus Google Drive...")
 def _drive_jsons_laden(ordnername: str) -> list[dict]:
+    return _drive_jsons_lesen(ordnername)
+
+
+def _drive_jsons_lesen(ordnername: str) -> list[dict]:
+    """Alle Einträge eines Unterordners in Namens- (= Zeit-)Reihenfolge."""
     ordner = _unterordner_id(ordnername)
     svc = _drive()
     dateien, token = [], None
@@ -195,7 +232,8 @@ def _drive_jsons_laden(ordnername: str) -> list[dict]:
         token = res.get("nextPageToken")
         if not token:
             break
-    eintraege = [_drive_json_laden(d["id"]) for d in dateien]
+    _drive_jsons_holen([d["id"] for d in dateien])
+    eintraege = [_JSON_CACHE.get(d["id"]) for d in dateien]
     return [e for e in eintraege if e is not None]
 
 
