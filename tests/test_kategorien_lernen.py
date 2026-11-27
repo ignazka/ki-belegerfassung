@@ -47,3 +47,13 @@ def test_leere_antwort():
 def test_konstanten():
     assert "nachfragen_wenn" in LERN_FELDER and "beschreibung" not in LERN_FELDER
     assert set(URSACHEN) >= {"regel", "nachfrage_zu_streng", "lesefehler", "bewertung_widerspruechlich", "unklar"}
+
+
+def test_hoechste_version_gilt_auch_bei_verdrehter_uhrzeit():
+    # Cloud speichert UTC, ein lokales Skript MEZ -> die ältere Version kann die spätere Uhrzeit haben
+    from kategorien import aktueller_stand
+    versionen = [
+        {"zeitpunkt": "2026-11-27T13:58:42", "schluessel": "reise", "name": "Reise", "status": "entwurf", "version": 2},
+        {"zeitpunkt": "2026-11-27T13:04:08", "schluessel": "reise", "name": "Reise", "status": "aktiv", "version": 3},
+    ]
+    assert aktueller_stand(versionen)["reise"]["status"] == "aktiv"

@@ -56,7 +56,7 @@ def aktueller_stand(versionen: list[dict]) -> dict[str, dict]:
               "beschreibung": STANDARD_BESCHREIBUNG.get(key, "")}
         for key, label in STANDARD_KATEGORIEN.items()
     }
-    for v in sorted(versionen, key=lambda v: (v.get("zeitpunkt") or "", v.get("version") or 0)):
+    for v in sorted(versionen, key=lambda v: (v.get("version") or 0, v.get("zeitpunkt") or "")):  # Version zählt, nicht die Uhrzeit (UTC in der Cloud, lokal MEZ)
         key = v.get("schluessel")
         if not key:
             continue
