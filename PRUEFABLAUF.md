@@ -207,6 +207,8 @@ Ausnahme: Wählt die KI „Sonstiger Beleg“ und ist der Aussteller **von Hand*
 Belegart selbst richtig (Konto neu nach der Kategorie) – ohne Schiedsrichter und ohne Nachfrage. Im Prüfformular
 steht dann „Belegart vom Programm richtiggestellt“; Analyse und Prüfung vermerken `belegart_richtiggestellt`,
 die gespeicherten Lesungen zeigen weiter die Antwort der KI (für die Lesequalität).
+Eintragen von Hand geht auch direkt beim Prüfen: Häkchen „Aussteller als bekannt für … merken“ im Prüfformular
+→ neue Version der Kategorie mit dem Aussteller (wie er im Feld steht, Anmerkung „beim Prüfen gemerkt“).
 Nicht im Prompt, die Prompt-Version ändert sich dadurch nicht.
 
 ## 7a. Abgleich mit dem Firmenkalender

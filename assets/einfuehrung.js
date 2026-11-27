@@ -43,7 +43,8 @@
       text: "Stimmt die Belegart? Dann „Ja“, sonst die richtige auswählen. Falsch gelesene Werte einfach " +
             "überschreiben und kurz begründen – aus diesen Begründungen lernt die KI. Dazu gehört auch das " +
             "Konto (SKR04): Stimmt es nicht, die richtige Nummer eintragen. Steht auf Hotelrechnung oder " +
-            "Fahrkarte ein Name, gehört er ins Feld „Mitarbeiter / Gast“ – fehlt er, bitte ergänzen. Auch schon " +
+            "Fahrkarte ein Name, gehört er ins Feld „Mitarbeiter / Gast“ – fehlt er, bitte ergänzen. Kommt der Aussteller öfter vor, " +
+            "per Häkchen „Aussteller … merken“ gleich als bekannt eintragen. Auch schon " +
             "geprüfte Belege lassen sich jederzeit über „Korrigieren“ ändern." },
     { tab: 1, ziel: () => knopfMitText("Beleg entfernen"), titel: "Falsch hochgeladen?",
       text: "Wurde ein Beleg falsch hochgeladen – z. B. Vorder- und Rückseite als zwei einzelne Belege –, " +

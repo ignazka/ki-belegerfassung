@@ -160,6 +160,9 @@ wie `kategorien_registrieren`. `checks._aussteller_abgleich` nutzt sie; `lesequa
 setzt auf einer Kopie der Analyse die Belegart (vor den Prüfungen, also ohne Schiedsrichter/Nachfrage);
 `LeseErgebnis.richtiggestellt` → Feld `belegart_richtiggestellt {ki, neu, aussteller}` in Analyse und Feedback.
 Die Trefferquote „Belegart“ der Auswertung zählt solche Belege als richtig; die Lesequalität (rohe Lesungen) nicht.
+Häkchen „Aussteller … merken“ im Prüfformular (`App._merken_moeglich` / `App._aussteller_merken`): nach dem Speichern
+der Prüfung neue Kategorie-Version mit dem Aussteller in `bekannte_merkmale` (+ Google-Doc-Kopie); nicht bei
+„Sonstiger Beleg“/„Unlesbar“ oder wenn der Aussteller dort schon von Hand steht.
 
 ### 5.2 Vor dem Speichern testen (Probelauf)
 

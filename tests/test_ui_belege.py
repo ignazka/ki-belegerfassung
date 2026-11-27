@@ -242,3 +242,32 @@ def test_richtiggestellte_belegart_wird_angezeigt_und_vermerkt():
     A.knopf(at, "Prüfung speichern").click().run()
     neu = A.SPEICHER["feedback"][-1]
     assert neu["belegart_richtiggestellt"]["ki"] == "sonstiger_beleg" and neu["kategorie"]["richtig"]
+
+
+def test_aussteller_beim_pruefen_merken():
+    at = A.app(analysen=[A.analyse_eintrag("tank", kategorie="tankbeleg", restaurant_name="Aral Speyer")])
+    at.segmented_control[0].set_value("ungeprueft").run()
+    assert not any("Aussteller als bekannt" in c.label for c in at.checkbox)  # erst nach der Belegart-Frage
+    A.radio(at, "Stimmt die Belegart").set_value("ja").run()
+    haken = next(c for c in at.checkbox if "Aussteller als bekannt" in c.label)
+    haken.check()
+    A.knopf(at, "Prüfung speichern").click().run()
+    A.keine_fehler(at)
+    version = A.SPEICHER["kategorien"][-1]
+    assert version["schluessel"] == "tankbeleg" and version["version"] == 1
+    assert version["bekannte_merkmale"] == [{"art": "aussteller", "wert": "Aral Speyer",
+                                             "anmerkung": "beim Prüfen gemerkt"}]
+    assert any("ist jetzt bekannter Aussteller" in i.value for i in at.info)
+
+
+def test_kein_merken_wenn_schon_eingetragen_oder_sonstiger_beleg():
+    kat = {"zeitpunkt": A.zeitpunkt(), "schluessel": "tankbeleg", "name": "Tankbeleg", "status": "aktiv",
+           "version": 1, "bekannte_merkmale": [{"art": "aussteller", "wert": "Aral", "anmerkung": ""}]}
+    at = A.app(kategorien=[kat], analysen=[
+        A.analyse_eintrag("tank", kategorie="tankbeleg", restaurant_name="Aral Speyer"),
+        A.analyse_eintrag("sonst", kategorie="sonstiger_beleg", restaurant_name="Irgendwer")])
+    at.segmented_control[0].set_value("ungeprueft").run()
+    for sha in ("tank", "sonst"):
+        at.selectbox(key="beleg_wahl").set_value(sha).run()
+        A.radio(at, "Stimmt die Belegart").set_value("ja").run()
+        assert not any("Aussteller als bekannt" in c.label for c in at.checkbox), sha

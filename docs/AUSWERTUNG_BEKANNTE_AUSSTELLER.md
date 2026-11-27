@@ -111,7 +111,10 @@ was richtig ist und ob beides übereinstimmt. Gezählt wurden alle mit `richtig 
 Einschränkung: Verglichen wurde mit dem Zeitpunkt der **Prüfung**, nicht der Analyse (die älteren Belege haben
 keinen eigenen Analyse-Eintrag). Trip.com, Wizz Air und Deutsche Post wurden nur Minuten nach dem Anlegen der
 Kategorie geprüft – sie wurden sehr wahrscheinlich **vorher** analysiert, deshalb „wohl“. Bei den DB-Tickets
-lagen Tage dazwischen: Die KI kannte die Kategorie und hat trotzdem „Sonstiger Beleg“ gewählt.
+lagen zwar Tage dazwischen – **aber „Reisekosten Mitarbeiter“ ist bis heute nur ein Entwurf** (Status
+`entwurf`, nachträglich festgestellt). Entwürfe stehen nicht im Prompt und gelten nicht als gültige Antwort
+(`kategorien.labels()` nimmt nur aktive Kategorien). Die KI **konnte** diese Belegart also gar nicht wählen;
+„Sonstiger Beleg“ war aus ihrer Sicht richtig. Ursache der Fehler ist der Status, nicht die KI.
 
 ---
 

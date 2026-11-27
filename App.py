@@ -1573,6 +1573,9 @@ def zeige_belege():
             st.success(f"„{zuletzt['dateiname']}“ gespeichert. So sieht die Prüfung aus:",
                        icon=":material/check_circle:")
             _vergleichstabelle(zuletzt["kategorie"], zuletzt["felder"])
+    gemerkt = ss.pop("aussteller_gemerkt", None)
+    if gemerkt:
+        st.info(gemerkt, icon=":material/bookmark_added:")
 
     try:
         belege = _alle_belege()
@@ -1753,6 +1756,13 @@ def _beleg_formular(b: dict, modus: str, naechster: str | None, offen_key: str |
             placeholder="z. B. Zimmerbuchung – ist eine Übernachtung, keine Bewirtung / Trinkgeld steht "
                         "handschriftlich unten",
         )
+        merken = (st.checkbox(
+            f"Aussteller als bekannt für „{_kategorie_label(kat_korrekt)}“ merken",
+            key=f"{key}_merken",
+            help="Trägt den Aussteller (so wie oben im Feld) beim Speichern in die Tabelle „Bekannte Aussteller“ "
+                 "dieser Kategorie ein. Danach prüft das Programm die Belegart der KI bei diesem Aussteller gegen "
+                 "und stellt „Sonstiger Beleg“ selbst richtig.")
+            if _merken_moeglich(kat_korrekt, start.restaurant_name) else False)
         links, mitte, _rest = st.columns([3, 2, 3])
         abgeschickt = links.form_submit_button(
             "Korrigieren" if modus != "pruefen" else "Prüfung speichern", type="primary", width="stretch")
@@ -1798,12 +1808,51 @@ def _beleg_formular(b: dict, modus: str, naechster: str | None, offen_key: str |
     except Exception as ex:
         st.error(f"Speichern fehlgeschlagen – bitte erneut versuchen: {ex}")
         return
+    if merken:
+        st.session_state["aussteller_gemerkt"] = _aussteller_merken(kat_korrekt, felder["restaurant_name"]["korrekt"])
     if offen_key:
         st.session_state[offen_key] = False
     elif naechster:  # neu geprüft -> gleich weiter mit dem nächsten Beleg der Liste
         st.session_state["beleg_wahl_naechste"] = naechster
     st.session_state["beleg_zuletzt"] = {"dateiname": b["dateiname"], "kategorie": neu["kategorie"], "felder": felder}
     st.rerun()
+
+
+def _merken_moeglich(kategorie: str | None, name: str | None) -> bool:
+    """Häkchen „Aussteller merken“ nur bei echter Belegart und wenn der Aussteller dort nicht schon von Hand steht."""
+    if kategorie in (None, "sonstiger_beleg", "unlesbar") or kategorie not in KAT_STAND:
+        return False
+    eingetragen = merkmale.nachschlagen(name, merkmale.aus_kategorien({kategorie: KAT_STAND[kategorie]}))
+    return eingetragen is None
+
+
+def _aussteller_merken(kategorie: str, name: str | None) -> str:
+    """Aussteller als neue Version der Kategorie eintragen (wie von Hand im Kategorien-Tab). -> Meldung."""
+    label = _kategorie_label(kategorie)
+    name = (name or "").strip()
+    if not merkmale.norm(name):
+        return "Kein Aussteller gemerkt – das Feld „Restaurant / Aussteller“ war leer."
+    k = KAT_STAND.get(kategorie) or {}
+    alt = [m for m in (k.get("bekannte_merkmale") or []) if isinstance(m, dict)]
+    if any(merkmale.norm(m.get("wert")) == merkmale.norm(name) for m in alt):
+        return f"„{name}“ steht schon bei „{label}“."
+    version = {x: v for x, v in k.items() if x not in ("zeitpunkt", "standard", "aus_lernrunde", "bearbeiter")}
+    version.update({
+        "schluessel": kategorie,
+        "bekannte_merkmale": alt + [{"art": "aussteller", "wert": name, "anmerkung": "beim Prüfen gemerkt"}],
+        "version": int(k.get("version") or 0) + 1,
+        "bearbeiter": aktueller_benutzer(),
+    })
+    try:
+        kategorie_speichern(version)
+    except Exception as e:
+        return f"Aussteller konnte nicht gemerkt werden: {e}"
+    try:  # lesbare Kopie im Drive – Fehler hier blockieren nicht
+        kategorie_dokument_ablegen(version.get("name") or label, kat_dokument({**version, "zeitpunkt": None}))
+    except Exception:
+        pass
+    hinweis = "" if k.get("status", "aktiv") == "aktiv" else " Die Kategorie ist noch ein Entwurf – wirksam erst, wenn sie aktiv ist."
+    return f"„{name}“ ist jetzt bekannter Aussteller von „{label}“ (Version {version['version']}).{hinweis}"
 
 
 # ---------------------------------------------------------------------------

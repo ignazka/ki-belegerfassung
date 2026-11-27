@@ -82,7 +82,8 @@ lange Vorgänge genauso bauen. Zusätzlich zeigt ein orangefarbener Ladebalken o
 **Bekannte Aussteller** (`merkmale.py`, Feld `bekannte_merkmale` der Kategorie, Tabelle im Kategorien-Tab):
 von Hand + automatisch aus Prüfungen (≥ 2×, eindeutige Belegart); Abgleich im Code (`checks._aussteller_abgleich`),
 bestätigt → „Belegart unsicher“ entfällt, Widerspruch → Nachfrage; KI „Sonstiger Beleg“ + Aussteller von Hand
-eingetragen → Code stellt die Belegart richtig (`checks.belegart_richtigstellen`, Vermerk `belegart_richtiggestellt`). Nicht im Prompt. Später weitere `art`en
+eingetragen → Code stellt die Belegart richtig (`checks.belegart_richtigstellen`, Vermerk `belegart_richtiggestellt`).
+Eintragen auch per Häkchen „Aussteller … merken“ im Prüfformular (`_aussteller_merken`). Nicht im Prompt. Später weitere `art`en
 (Lesefeld `mitarbeiter` gibt es seit Prompt-Version 2026-11-27.1; das kleine Modell lässt den Namen bisher oft leer –
 erst Daten sammeln, dann ggf. Schiedsrichter gezielt dazuholen).
 
