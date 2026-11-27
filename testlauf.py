@@ -41,10 +41,11 @@ class Ergebnis:
     werte: dict | None = None  # {Prüffeld: gelesener Wert} für den Vergleich mit einer Musterlösung
 
 
-def _analysieren(beleg: tuple[str, bytes, str], system: str, konten: dict | None = None) -> Ergebnis:
-    """konten: Konto-Regeln DIESER Variante ({kategorie: {"standard", "ausnahmen"}}). Ohne: wie gelesen."""
+def _analysieren(beleg: tuple, system: str, konten: dict | None = None) -> Ergebnis:
+    """beleg: (name, bytes, mime) oder – bei mehreren Dateien/Seiten – (name, [(name, bytes, mime), …]).
+    konten: Konto-Regeln DIESER Variante ({kategorie: {"standard", "ausnahmen"}}). Ohne: wie gelesen."""
     try:
-        dateien = [beleg]
+        dateien = beleg[1] if isinstance(beleg[1], list) else [beleg]
         bilder = dateien_zu_bildern(dateien)[0]
         e = beleg_lesen(bilder, dateien, system=system)
     except Exception as ex:

@@ -38,6 +38,7 @@ import pandas as pd
 import skr04
 from kategorien import LERN_PROMPT, URSACHEN, lern_antwort_pruefen, lern_nachricht
 import lesequalitaet
+import lernen
 from checks import immer_berechtigt
 from prompts import prompt_version, system_prompt
 from storage import (
@@ -70,6 +71,8 @@ from storage import (
     kalender_verbindung,
     kategorien_laden,
     feedback_speichern,
+    lernrunde_speichern,
+    lernrunden_laden,
     nachfragen_laden,
 )
 
@@ -217,10 +220,11 @@ thema_knopf()  # oben rechts neben dem Menü
 
 # Kategorie-Wissen aus der App -> gültige Kategorien + Prompt (gilt für alle Benutzer gleich)
 try:
-    KAT_STAND = aktueller_stand(kategorien_laden())
+    KAT_VERSIONEN = kategorien_laden()  # alle Versionen (für „Aus Korrekturen lernen“: Änderungen, Herkunft)
 except Exception as e:
     st.warning(f"Kategorien konnten nicht geladen werden, es gelten nur die Standard-Kategorien: {e}")
-    KAT_STAND = aktueller_stand([])
+    KAT_VERSIONEN = []
+KAT_STAND = aktueller_stand(KAT_VERSIONEN)
 kategorien_registrieren(labels(KAT_STAND))
 konten_registrieren(kat_konten(KAT_STAND))
 SYSTEM_PROMPT_AKTUELL = system_prompt(prompt_abschnitt(KAT_STAND))
@@ -748,7 +752,7 @@ def _feld_fehler(e: dict) -> list[str]:
 
 
 def _fehlerfrei(e: dict) -> bool:
-    return e["kategorie"]["richtig"] and not _feld_fehler(e)
+    return lernen.fehlerfrei(e)
 
 
 def zeige_auswertung():
@@ -1025,35 +1029,66 @@ def _schiedsrichter_wirkung_inhalt() -> None:
 _MAX_LERNFAELLE = 60
 
 
-def _lernfaelle(eintraege: list[dict]) -> tuple[list[dict], list[dict]]:
+def _analysezeit(analyse_eintrag: dict | None, bewertung: dict) -> str:
+    """Wann die KI den Beleg gelesen hat. Liegt die jüngste Analyse nach der Prüfung (Beleg neu hochgeladen),
+    galt die Prüfung einer früheren Analyse – dann ist der Prüfzeitpunkt die beste Obergrenze."""
+    zeiten = [z for z in ((analyse_eintrag or {}).get("zeitpunkt"), bewertung.get("zeitpunkt")) if z]
+    return min(zeiten) if zeiten else ""
+
+
+def _nur_gefuellt(d: dict) -> dict:
+    return {k: v for k, v in d.items() if v}
+
+
+def _lernfaelle(eintraege: list[dict], mit_alten: bool = False) -> dict:
     """Bewertungen, aus denen sich etwas lernen lässt: korrigiert, kommentiert oder nachgefragt.
-    -> (nummerierte Fälle fürs Modell, zugehörige Einträge)."""
-    # Nachfragegründe: aus der Prüfung selbst oder – bei älteren Prüfungen ohne dieses Feld – aus der Analyse
+    -> {"faelle": nummerierte Fälle fürs Modell, "quellen": zugehörige Bewertungen,
+        "vorsortiert": Anzahl eindeutiger Lesefehler (ohne KI), "veraltet": Anzahl Fälle, deren Kategorie seit
+        der Analyse geändert wurde (gehen nur mit mit_alten ans Modell)}."""
     try:
-        gruende_je_beleg = {b["sha"]: b["gruende"] for b in _alle_belege()}
+        belege = {b["sha"]: b for b in _alle_belege()}
     except Exception:
-        gruende_je_beleg = {}
+        belege = {}
 
-    def gruende(e):
-        return e.get("nachfrage_gruende") or gruende_je_beleg.get(e.get("datei_sha256")) or []
+    def gruende(e):  # aus der Prüfung selbst oder – bei älteren Prüfungen ohne dieses Feld – aus der Analyse
+        return e.get("nachfrage_gruende") or (belege.get(e.get("datei_sha256")) or {}).get("gruende") or []
 
-    quellen = [e for e in eintraege
-               if not _fehlerfrei(e) or (e.get("kommentar") or "").strip() or gruende(e)]
+    aenderungen = lernen.wissensaenderungen(KAT_VERSIONEN)
+    vorsortiert = veraltet = 0
+    quellen = []
+    for e in eintraege:
+        if _fehlerfrei(e) and not (e.get("kommentar") or "").strip() and not gruende(e):
+            continue  # nichts zu lernen
+        if lernen.vorsortiert(e, gruende(e)):
+            vorsortiert += 1
+            continue
+        zeit = _analysezeit((belege.get(e.get("datei_sha256")) or {}).get("analyse_eintrag"), e)
+        if lernen.veraltet(zeit, (e["kategorie"]["modell"], e["kategorie"]["korrekt"]), aenderungen):
+            veraltet += 1
+            if not mit_alten:
+                continue
+        quellen.append(e)
     quellen = sorted(quellen, key=lambda e: e.get("zeitpunkt") or "", reverse=True)[:_MAX_LERNFAELLE]
     faelle = []
     for nr, e in enumerate(quellen, start=1):
-        k, felder = e["kategorie"], e.get("felder") or {}
+        k, felder, a = e["kategorie"], e.get("felder") or {}, e.get("analyse") or {}
         faelle.append({
             "nr": nr,
             "belegart_ki": f'{k["modell"]} ({_kategorie_label(k["modell"])})',
             "belegart_richtig": f'{k["korrekt"]} ({_kategorie_label(k["korrekt"])})',
             "belegart_vom_menschen_bestaetigt": bool(k["richtig"]),
-            "beleg_laut_ki": {  # Eckdaten, damit das Modell nicht raten muss, worum es ging
-                "aussteller": (e.get("analyse") or {}).get("restaurant_name"),
-                "ausland": (e.get("analyse") or {}).get("ausland"),
-                "begruendung_der_belegart": (e.get("analyse") or {}).get("kategorie_grund"),
-                "hinweise": ((e.get("analyse") or {}).get("hinweise") or [])[:5],
-            },
+            "beleg_laut_ki": _nur_gefuellt({  # Eckdaten, damit das Modell nicht raten muss, worum es ging
+                "aussteller": a.get("restaurant_name"),
+                "ausland": a.get("ausland"),
+                "begruendung_der_belegart": a.get("kategorie_grund"),
+                "belegart_unsicher": a.get("kategorie_unsicher"),
+                "fehlende_pflichtangaben": a.get("fehlende_pflichtangaben"),
+                "steuersaetze": a.get("steuersaetze"),
+                "konto": a.get("konto"),
+                "begruendung_konto": a.get("konto_grund"),
+                "vom_code_umgedeutet": a.get("korrekturen"),
+                "hinweise": (a.get("hinweise") or [])[:5],
+            }),
             "geaenderte_felder": [{"feld": label, "ki": anzeige(felder[key]["modell"]) or "–",
                                    "richtig": anzeige(felder[key]["korrekt"]) or "–"}
                                   for key, label, _t in FEEDBACK_FELDER
@@ -1062,7 +1097,16 @@ def _lernfaelle(eintraege: list[dict]) -> tuple[list[dict], list[dict]]:
             "kommentar_mensch": (e.get("kommentar") or "").strip(),
             "quelle": _QUELLE.get(e.get("quelle"), _QUELLE_ALT),
         })
-    return faelle, quellen
+    return {"faelle": faelle, "quellen": quellen, "vorsortiert": vorsortiert, "veraltet": veraltet}
+
+
+def _letzte_lernrunde() -> dict | None:
+    """Jüngste gespeicherte Runde – damit das Ergebnis nach dem Neuladen nicht verloren ist."""
+    try:
+        runden = [r for r in lernrunden_laden() if r.get("erstellt") and "vorschlaege" in r]
+    except Exception:
+        return None
+    return max(runden, key=lambda r: r["erstellt"], default=None)
 
 
 def _aus_korrekturen_lernen(eintraege: list[dict]) -> None:
@@ -1073,36 +1117,90 @@ def _aus_korrekturen_lernen(eintraege: list[dict]) -> None:
         "nichts: Ein Vorschlag landet als ungespeicherte Änderung im Tab „Kategorien“ – dort prüfen, mit "
         "„Testen“ ausprobieren und erst dann speichern."
     )
-    faelle, quellen = _lernfaelle(eintraege)
+    ss = st.session_state
+    lf = _lernfaelle(eintraege, mit_alten=ss.get("lern_mit_alten", False))
+    faelle, quellen = lf["faelle"], lf["quellen"]
+    if lf["veraltet"]:
+        st.checkbox(
+            f"Auch ältere Fälle einbeziehen ({lf['veraltet']}, deren Kategorie seitdem geändert wurde)",
+            key="lern_mit_alten",
+            help="Diese Belege hat die KI gelesen, bevor ihre Kategorie zuletzt geändert wurde – der Fehler ist "
+                 "vielleicht schon behoben. Deshalb bleiben sie normalerweise draußen, sonst tauchen alte "
+                 "Vorschläge immer wieder auf.",
+        )
+    if lf["vorsortiert"]:
+        st.caption(f":material/filter_alt: {lf['vorsortiert']} {'Fall' if lf['vorsortiert'] == 1 else 'Fälle'} ohne "
+                   "KI als Lesefehler einsortiert: nur nachgefragt, weil zwei Lesungen voneinander abwichen – am "
+                   "Ende stimmte alles. Regeln helfen da nicht.")
     if not faelle:
-        st.info("Noch keine Korrekturen, Kommentare oder Nachfragen – es gibt noch nichts zu lernen.")
-        return
-    if len(faelle) < 20:
-        st.caption(f":material/info: Erst {len(faelle)} Fälle. Mit wenigen Fällen sind Vorschläge oft "
-                   "Einzelfälle – richtig aussagekräftig wird es ab etwa 20–30 Korrekturen.")
-    _lauf_meldung("lernen")
-    if _lauf_knopf(f"Verbesserungsvorschläge erstellen ({len(faelle)} {'Fall' if len(faelle) == 1 else 'Fälle'})",
-                   "lernen", icon=":material/auto_awesome:", help=f"Modell: {MODEL_GROSS}."):
-        # auch Entwürfe zeigen: Fehler betreffen oft gerade neu angelegte Kategorien
-        stand = {key: {**k, "status": "aktiv"} for key, k in kat_sichtbar(KAT_STAND).items()}
-        try:
-            with st.spinner("KI sucht Muster in den Korrekturen …"):
-                antwort = text_anfrage_json(LERN_PROMPT, lern_nachricht(stand, faelle))
-        except Exception as ex:
-            st.session_state["meldung_lernen"] = f"Vorschläge konnten nicht erstellt werden: {ex}"
-        else:
-            st.session_state["lern_ergebnis"] = {
-                **lern_antwort_pruefen(antwort, KAT_STAND, len(faelle)),
-                "dateien": [e.get("dateiname") or "?" for e in quellen],
-                "shas": [e.get("datei_sha256") for e in quellen],
-                "erstellt": datetime.now().isoformat(timespec="seconds"),
-                "anzahl": len(faelle),
-            }
-            st.session_state["lern_uebernommen"] = set()
-        st.rerun()
-    erg = st.session_state.get("lern_ergebnis")
+        st.info("Noch keine Korrekturen, Kommentare oder Nachfragen – es gibt noch nichts zu lernen."
+                if not (lf["vorsortiert"] or lf["veraltet"]) else
+                "Gerade keine Fälle, aus denen sich Regeln lernen lassen.")
+    else:
+        if len(faelle) < 20:
+            st.caption(f":material/info: Erst {len(faelle)} Fälle. Mit wenigen Fällen sind Vorschläge oft "
+                       "Einzelfälle – richtig aussagekräftig wird es ab etwa 20–30 Korrekturen.")
+        _lauf_meldung("lernen")
+        if _lauf_knopf(f"Verbesserungsvorschläge erstellen ({len(faelle)} {'Fall' if len(faelle) == 1 else 'Fälle'})",
+                       "lernen", icon=":material/auto_awesome:", help=f"Modell: {MODEL_GROSS}."):
+            # auch Entwürfe zeigen: Fehler betreffen oft gerade neu angelegte Kategorien
+            stand = {key: {**k, "status": "aktiv"} for key, k in kat_sichtbar(KAT_STAND).items()}
+            try:
+                with st.spinner("KI sucht Muster in den Korrekturen …"):
+                    antwort = text_anfrage_json(LERN_PROMPT, lern_nachricht(stand, faelle))
+            except Exception as ex:
+                ss["meldung_lernen"] = f"Vorschläge konnten nicht erstellt werden: {ex}"
+            else:
+                erg = {
+                    **lern_antwort_pruefen(antwort, KAT_STAND, len(faelle)),
+                    "dateien": [e.get("dateiname") or "?" for e in quellen],
+                    "shas": [e.get("datei_sha256") for e in quellen],
+                    "erstellt": datetime.now().isoformat(timespec="seconds"),
+                    "anzahl": len(faelle),
+                    "vorsortiert": lf["vorsortiert"],
+                    "ausgelassen_veraltet": 0 if ss.get("lern_mit_alten") else lf["veraltet"],
+                    "modell": MODEL_GROSS,
+                    "prompt_version": PROMPT_VERSION,
+                    "bearbeiter": aktueller_benutzer(),
+                }
+                ss["lern_ergebnis"] = erg
+                try:
+                    lernrunde_speichern(erg)
+                except Exception as ex:
+                    ss["meldung_lernen"] = (f"Vorschläge erstellt, aber nicht gespeichert – nach dem Neuladen sind "
+                                            f"sie weg: {ex}")
+            st.rerun()
+    erg = ss.get("lern_ergebnis") or _letzte_lernrunde()
     if erg:
         _lern_ergebnis_zeigen(erg)
+    _lern_wirkung()
+
+
+def _lern_wirkung() -> None:
+    """Gespeicherte Vorschläge (Kategorie-Versionen mit „aus_lernrunde“): Fehler der Kategorie vorher/nachher."""
+    gespeichert = [v for v in KAT_VERSIONEN if v.get("aus_lernrunde") and v.get("schluessel")]
+    if not gespeichert:
+        return
+    try:
+        paare = [(_analysezeit(b.get("analyse_eintrag"), b["bewertung"]), b["bewertung"])
+                 for b in _alle_belege() if b.get("bewertung")]
+    except Exception:
+        return
+
+    def quote(fehler_gesamt):
+        f, g = fehler_gesamt
+        return f"{f} von {g} ({f / g:.0%})" if g else "noch keine geprüften Belege"
+
+    zeilen = []
+    for v in sorted(gespeichert, key=lambda v: v.get("zeitpunkt") or "", reverse=True):
+        w = lernen.wirkung(paare, v["schluessel"], v.get("zeitpunkt") or "")
+        zeilen.append({"Gespeichert": zeitpunkt_de(v.get("zeitpunkt")), "Kategorie": _kategorie_label(v["schluessel"]),
+                       "Ergänzt": " · ".join(q.get("text", "") for q in v["aus_lernrunde"]),
+                       "Mit Fehler vorher": quote(w["vorher"]), "Mit Fehler nachher": quote(w["nachher"])})
+    st.markdown("**Wirkung übernommener Vorschläge**")
+    st.caption("Geprüfte Belege dieser Kategorie mit mindestens einem Fehler (falsche Belegart oder korrigiertes "
+               "Feld), gelesen vor bzw. nach dem Speichern. „Nachher“ füllt sich erst mit neuen Belegen.")
+    _tabelle(zeilen)
 
 
 # Reihenfolge, Farbe und Erklärung der Ursachen in der Anzeige
@@ -1170,10 +1268,14 @@ def _lern_ergebnis_zeigen(erg: dict) -> None:
     zaehler = "  ".join(f":{_URSACHE_ANZEIGE[u][0]}-badge[{URSACHEN[u]} · {len(faelle_je_ursache[u])}]"
                         for u in _URSACHE_ANZEIGE if faelle_je_ursache[u])
     st.markdown(f"{zaehler}  \n:small[:gray[Erstellt am {zeitpunkt_de(erg['erstellt'])} aus {erg['anzahl']} "
-                f"Fällen · {len(erg['vorschlaege'])} {'Vorschlag' if len(erg['vorschlaege']) == 1 else 'Vorschläge'}]]")
+                f"Fällen · {len(erg['vorschlaege'])} {'Vorschlag' if len(erg['vorschlaege']) == 1 else 'Vorschläge'}"
+                + (f" · {erg['ausgelassen_veraltet']} ältere Fälle ausgelassen" if erg.get("ausgelassen_veraltet") else "")
+                + "]]")
 
     darf = darf_kategorien_bearbeiten()
-    uebernommen = st.session_state.setdefault("lern_uebernommen", set())
+    uebernommen = st.session_state.setdefault("lern_uebernommen", set())  # {(Runde, Nr. des Vorschlags)}
+    runde = erg["erstellt"]
+    gespeichert = {(q.get("runde"), q.get("text")) for v in KAT_VERSIONEN for q in v.get("aus_lernrunde") or []}
     sicherheit = {"hoch": ("Sicherheit hoch", "green"), "mittel": ("Sicherheit mittel", "orange"),
                   "niedrig": ("Einzelfall", "gray")}
     for u, (farbe, erklaerung) in _URSACHE_ANZEIGE.items():
@@ -1190,13 +1292,15 @@ def _lern_ergebnis_zeigen(erg: dict) -> None:
                 st.markdown(f"> {v['text']}")
                 st.caption(v["begruendung"] + (" · Fälle: " + ", ".join(datei(n) for n in v["faelle"])
                                                if v["faelle"] else ""))
-                if i in uebernommen:
+                if (runde, v["text"]) in gespeichert:
+                    st.caption(":material/check_circle: In der Kategorie gespeichert – Wirkung siehe unten.")
+                elif (runde, i) in uebernommen:
                     st.caption(":material/check: Im Tab „Kategorien“ vorbereitet – dort prüfen, testen, speichern.")
                 elif darf and st.button("In Kategorie übernehmen", icon=":material/playlist_add:",
                                         key=f"lern_ueb_{i}"):
                     st.session_state.setdefault("kategorie_vorschlaege_naechste", []).append(
-                        {"key": v["kategorie"], "feld": v["feld"], "text": v["text"]})
-                    uebernommen.add(i)
+                        {"key": v["kategorie"], "feld": v["feld"], "text": v["text"], "runde": runde})
+                    uebernommen.add((runde, i))
                     st.toast("Vorschlag im Tab „Kategorien“ vorbereitet – dort prüfen, testen und speichern.",
                              icon=":material/playlist_add:")
                     st.rerun()
@@ -1735,6 +1839,8 @@ def zeige_kategorien():
         if v["text"] not in alt:
             ss[f"{px}_{v['feld']}"] = f"{alt}\n{v['text']}" if alt else v["text"]
             ss.setdefault(f"{px}_lernvorschlag", []).append(f"{KAT_FELD_LABEL[v['feld']]}: {v['text']}")
+            if v.get("runde"):  # Herkunft – wird beim Speichern in der Kategorie-Version vermerkt
+                ss.setdefault(f"{px}_lernquelle", []).append({"runde": v["runde"], "feld": v["feld"], "text": v["text"]})
         ss["kategorie_wahl_naechste"] = v["key"]
         ss.pop("kategorie_neu_modus", None)
     # Auswahl im Code ändern (nach Speichern/Löschen) geht nur vor dem Zeichnen der Auswahlliste
@@ -1989,36 +2095,62 @@ def _standard_ordner(name: str, ordner: list[str]) -> int:
 
 def _zeige_testlauf(wahl: str, k: dict, praefix: str) -> None:
     st.markdown(
-        "Die KI liest eure Beispielbelege zweimal – mit der **bisherigen** und mit der **neuen** Beschreibung "
+        "Die KI liest Belege zweimal – mit der **bisherigen** und mit der **neuen** Beschreibung "
         "(so, wie sie gerade im Formular steht). Danach siehst du, welche besser funktioniert.",
         help="Es wird dabei nichts gespeichert und nichts verändert. Dauer: etwa 2–4 Minuten. Kosten: "
-             "insgesamt nur wenige Cent. Die Beispielbelege liegen in Google Drive im Ordner "
-             "„Anlage KI Assistent“ und dort im passenden Unterordner.",
+             "insgesamt nur wenige Cent. Getestet wird entweder mit schon geprüften Belegen dieser Kategorie "
+             "(die richtigen Werte sind bekannt) oder mit Beispielbelegen aus Google Drive (Ordner "
+             "„Anlage KI Assistent“ und dort der passende Unterordner).",
     )
     name = (k.get("name") or st.session_state.get(f"{praefix}_name", "")).strip()
+    schluessel = wahl if wahl != _NEU else kat_schluessel(name)
+    # Geprüfte Belege: richtige Werte bekannt -> zeigt, ob Fehler behoben werden und nichts kaputtgeht
+    try:
+        gepruefte = ([] if wahl == _NEU else
+                     lernen.testbelege_auswaehlen(_alle_belege(), erwartete_kategorien(schluessel), MAX_TESTBELEGE))
+    except Exception:
+        gepruefte = []
+    geprueft_option = f"Geprüfte Belege dieser Kategorie ({len(gepruefte)})" if gepruefte else None
     try:
         ordner = anlage_ordner()
     except Exception as e:
-        st.error(f"Beispielordner nicht ladbar: {e}")
-        return
+        if not gepruefte:
+            st.error(f"Beispielordner nicht ladbar: {e}")
+            return
+        st.caption(f"Beispielordner nicht ladbar: {e}")
+        ordner = []
     neuer = f"Neuer Ordner: {name}" if name and name not in ordner else None
-    optionen = ordner + ([neuer] if neuer else [])
+    optionen = ([geprueft_option] if geprueft_option else []) + ordner + ([neuer] if neuer else [])
     if not optionen:
         st.info("Bitte zuerst einen Namen für die Kategorie eingeben.")
         return
-    gewaehlt = st.selectbox("Welche Beispielbelege sollen genutzt werden? (Ordner in Google Drive)", optionen,
-                            index=_standard_ordner(name, ordner) if ordner else 0, key=f"{praefix}_testordner")
+    gewaehlt = st.selectbox(
+        "Mit welchen Belegen testen?", optionen,
+        index=0 if geprueft_option or not ordner else _standard_ordner(name, ordner), key=f"{praefix}_testordner",
+        help="„Geprüfte Belege“: schon im Tab „Belege“ geprüft – je etwa zur Hälfte solche mit Fehler (soll die "
+             "Änderung beheben) und fehlerfreie (dürfen nicht kaputtgehen). Sonst ein Ordner in Google Drive.")
+    mit_gepruefen = gewaehlt == geprueft_option and geprueft_option is not None
     ordnername = name if gewaehlt == neuer else gewaehlt
-    belege = beispielbelege(ordnername) if gewaehlt != neuer else []
-    anzahl = "1 Beispielbeleg" if len(belege) == 1 else f"{len(belege)} Beispielbelege"
-    st.markdown(
-        f'<p style="font-size:1.15rem;margin:.25rem 0 .75rem">'
-        f'<strong>{anzahl.split(" ")[0]}</strong> {anzahl.split(" ", 1)[1]} im Ordner „{html.escape(ordnername)}“'
-        + (f" – getestet werden die ersten <strong>{MAX_TESTBELEGE}</strong>." if len(belege) > MAX_TESTBELEGE
-           else ("." if belege else " – bitte zuerst Belege hinzufügen."))
-        + "</p>",
-        unsafe_allow_html=True,
-    )
+    if mit_gepruefen:
+        belege = gepruefte
+        mit_fehler = sum(1 for b in gepruefte if not lernen.fehlerfrei(b["bewertung"]))
+        st.markdown(
+            f'<p style="font-size:1.15rem;margin:.25rem 0 .75rem"><strong>{len(gepruefte)}</strong> geprüfte '
+            f'{"Beleg" if len(gepruefte) == 1 else "Belege"}: {mit_fehler} mit Fehler, {len(gepruefte) - mit_fehler} '
+            "fehlerfrei.</p>",
+            unsafe_allow_html=True,
+        )
+    else:
+        belege = beispielbelege(ordnername) if gewaehlt != neuer else []
+        anzahl = "1 Beispielbeleg" if len(belege) == 1 else f"{len(belege)} Beispielbelege"
+        st.markdown(
+            f'<p style="font-size:1.15rem;margin:.25rem 0 .75rem">'
+            f'<strong>{anzahl.split(" ")[0]}</strong> {anzahl.split(" ", 1)[1]} im Ordner „{html.escape(ordnername)}“'
+            + (f" – getestet werden die ersten <strong>{MAX_TESTBELEGE}</strong>." if len(belege) > MAX_TESTBELEGE
+               else ("." if belege else " – bitte zuerst Belege hinzufügen."))
+            + "</p>",
+            unsafe_allow_html=True,
+        )
 
     upload_ok = st.session_state.pop(f"{praefix}_upload_ok", None)
     if upload_ok:
@@ -2028,6 +2160,10 @@ def _zeige_testlauf(wahl: str, k: dict, praefix: str) -> None:
     spalte_start, spalte_upload = st.columns(2)
     starten = _lauf_knopf("Probelauf starten", "probelauf", ort=spalte_start, scope="fragment", type="primary",
                           icon=":material/science:", width="stretch", disabled=not belege)
+    if mit_gepruefen:
+        _probelauf_starten(starten, wahl, k, name, schluessel, praefix, daten_laden=lambda: _gepruefte_daten(belege),
+                           gepruefte=True)
+        return
     with spalte_upload.popover("Weitere Belege hinzufügen", icon=":material/upload:", width="stretch"):
         neue = st.file_uploader(f"Belege für „{ordnername}“ auswählen", type=["pdf", "jpg", "jpeg", "png"],
                                 accept_multiple_files=True, key=f"{praefix}_testupload")
@@ -2061,8 +2197,16 @@ def _zeige_testlauf(wahl: str, k: dict, praefix: str) -> None:
             st.session_state["meldung_beispiele_ablegen"] = f"Ablegen fehlgeschlagen: {e}"
         st.rerun(scope="fragment")
 
+    def ordner_daten():
+        daten = [(b["name"], beispielbeleg_laden(b["ref"]), b["mime"]) for b in belege[:MAX_TESTBELEGE]]
+        return daten, _musterloesungen(daten)
+    _probelauf_starten(starten, wahl, k, name, schluessel, praefix, daten_laden=ordner_daten)
+
+
+def _probelauf_starten(starten: bool, wahl: str, k: dict, name: str, schluessel: str, praefix: str,
+                       daten_laden, gepruefte: bool = False) -> None:
+    """daten_laden() -> (Belege für testlauf.ausfuehren, Musterlösungen); gepruefte: Test mit geprüften Belegen."""
     if starten:
-        schluessel = wahl if wahl != _NEU else kat_schluessel(name)
         entwurf = {**KAT_STAND, schluessel: {**KAT_STAND.get(schluessel, {}),
                                              **_kategorie_aus_formular(schluessel, name, praefix),
                                              "status": "aktiv", "standard": bool(k.get("standard"))}}
@@ -2070,13 +2214,12 @@ def _zeige_testlauf(wahl: str, k: dict, praefix: str) -> None:
         varianten = {"vorher": SYSTEM_PROMPT_AKTUELL, "nachher": nachher}
         if nachher == SYSTEM_PROMPT_AKTUELL:
             varianten = {"nachher": nachher}  # nichts geändert -> nur ein Durchlauf
-        auswahl = belege[:MAX_TESTBELEGE]
         # Konto-Regeln: jede Variante nach ihren eigenen (auch noch nicht gespeicherte Ausnahmen).
         # Neue Kategorie + Konten gelten nur im Probelauf, nicht für gleichzeitige echte Analysen.
         konten = {"vorher": kat_konten(KAT_STAND), "nachher": kat_konten(entwurf)}
         balken = st.progress(0.0, text="Probelauf läuft …")
         try:
-            daten = [(b["name"], beispielbeleg_laden(b["ref"]), b["mime"]) for b in auswahl]
+            daten, muster = daten_laden()
             ergebnisse = testlauf_ausfuehren(
                 daten, varianten,
                 fortschritt=lambda f, g: balken.progress(f / g, text=f"Probelauf: {f} von {g} Lesungen fertig"),
@@ -2087,7 +2230,8 @@ def _zeige_testlauf(wahl: str, k: dict, praefix: str) -> None:
         else:
             st.session_state[f"testlauf_{wahl}"] = {"ergebnisse": ergebnisse, "varianten": list(varianten),
                                                     "erwartet": erwartete_kategorien(schluessel), "name": name,
-                                                    "schluessel": schluessel, "muster": _musterloesungen(daten)}
+                                                    "schluessel": schluessel, "muster": muster,
+                                                    "gepruefte": gepruefte}
         st.rerun(scope="fragment")  # Knopf wieder normal, Ergebnis anzeigen – Fenster bleibt offen
 
     ergebnis = st.session_state.get(f"testlauf_{wahl}")
@@ -2132,6 +2276,30 @@ def _sicher(funktion, *args):
         return e
 
 
+def _muster_aus(bewertung: dict) -> dict:
+    return {"kategorie": bewertung["kategorie"]["korrekt"],
+            "felder": {k: v["korrekt"] for k, v in (bewertung.get("felder") or {}).items()}}
+
+
+def _gepruefte_daten(belege: list[dict]) -> tuple[list, dict[str, dict]]:
+    """Geprüfte Belege (aus _alle_belege) -> ([(Name, [(Datei, bytes, mime), …])], {Name: Musterlösung}).
+    Originale in Upload-Reihenfolge, damit mehrseitige Belege wie beim Hochladen gelesen werden."""
+    daten, muster = [], {}
+    for b in belege:
+        quelle = b.get("analyse_eintrag") or b["bewertung"]
+        pfade = quelle.get("beleg_pfade") or ([quelle["beleg_pfad"]] if quelle.get("beleg_pfad") else [])
+        if not pfade:
+            continue
+        dateien = [(p.rsplit("/", 1)[-1], beleg_laden(p), _MIME.get("." + p.rsplit(".", 1)[-1].lower(), "image/jpeg"))
+                   for p in pfade]
+        name = b.get("dateiname") or b["sha"][:8]
+        if name in muster:
+            name = f"{name} ({b['sha'][:6]})"
+        daten.append((name, dateien))
+        muster[name] = _muster_aus(b["bewertung"])
+    return daten, muster
+
+
 def _musterloesungen(daten: list[tuple[str, bytes, str]]) -> dict[str, dict]:
     """Beispielbelege, die schon im Tab „Belege“ geprüft wurden (gleiche Datei) -> deren Prüfung als Musterlösung:
     {beleg_name: {"kategorie": richtige Belegart, "felder": {key: richtiger Wert}}}."""
@@ -2143,8 +2311,7 @@ def _musterloesungen(daten: list[tuple[str, bytes, str]]) -> dict[str, dict]:
     for name, inhalt, _mime in daten:
         f = bewertungen.get(datei_hash(inhalt))
         if f:
-            muster[name] = {"kategorie": f["kategorie"]["korrekt"],
-                            "felder": {k: v["korrekt"] for k, v in (f.get("felder") or {}).items()}}
+            muster[name] = _muster_aus(f)
     return muster
 
 
@@ -2191,8 +2358,9 @@ def _zeige_testergebnis(t: dict) -> None:
         z = zahlen[v]
         spalte.markdown(f"**{_VARIANTE_TITEL[v]}**")
         spalte.markdown(
-            f"- Richtig als „{t['name']}“ erkannt: **{z['erkannt']} von {z['belege']}**\n"
-            f"- Müssten nachgefragt werden: **{z['nachfragen']} von {z['belege']}**"
+            (f"- Belegart richtig erkannt: **{z['erkannt']} von {z['belege']}**\n"
+             if t.get("gepruefte") else f"- Richtig als „{t['name']}“ erkannt: **{z['erkannt']} von {z['belege']}**\n")
+            + f"- Müssten nachgefragt werden: **{z['nachfragen']} von {z['belege']}**"
             + (f"\n- Felder richtig gelesen (bei {z['mit_muster']} geprüften Belegen): "
                f"**{z['felder_richtig']} von {z['felder_geprueft']}**" if z.get("felder_geprueft") else "")
             + (f"\n- Konnten nicht gelesen werden: **{z['fehler']}**" if z["fehler"] else "")
@@ -2267,6 +2435,14 @@ def _kategorie_sichern(wahl: str, k: dict, praefix: str, loeschen: bool = False)
         "version": int(KAT_STAND.get(schluessel, {}).get("version") or 0) + 1,
         "bearbeiter": aktueller_benutzer(),
     }
+
+    # Vorschläge aus „Aus Korrekturen lernen“, die noch im Text stehen -> Herkunft vermerken (Auswertung „Wirkung“)
+    def steht_drin(q):
+        wert = eintrag.get(q["feld"])
+        return q["text"] in ("\n".join(wert) if isinstance(wert, list) else (wert or ""))
+    herkunft = [q for q in ss.get(f"{praefix}_lernquelle", []) if steht_drin(q)]
+    if herkunft and not loeschen:
+        eintrag["aus_lernrunde"] = herkunft
     try:
         kategorie_speichern(eintrag)
     except Exception as e:

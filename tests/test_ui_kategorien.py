@@ -226,3 +226,32 @@ def test_entwurf_gut_sichtbar_als_nicht_aktiv():
     # aktive Kategorie: kein Hinweis
     at = A.app(kategorien=[{**entwurf, "status": "aktiv"}])
     assert not any("Entwurf" in w.value for w in at.warning)
+
+
+def test_probelauf_mit_geprueften_belegen(monkeypatch):
+    """Probelauf mit schon geprüften Belegen der Kategorie: richtige Werte sind bekannt (Musterlösung)."""
+    import pipeline
+    import testlauf
+    monkeypatch.setattr(testlauf, "beleg_lesen", lambda *a, **k: pipeline.beleg_lesen(*a, **k))  # Attrappe
+    at = A.app(
+        analysen=[A.analyse_eintrag("h1"), A.analyse_eintrag("h2", kategorie="uebernachtung")],
+        feedback=[A.bewertung("h1", ki_kat="restaurant_beleg", richtige_kat="uebernachtung"),
+                  A.bewertung("h2", ki_kat="uebernachtung")],
+    )
+    at.selectbox(key="kategorie_wahl").set_value("uebernachtung").run()
+    A.knopf(at, "Testen").click().run()
+    A.keine_fehler(at)
+    auswahl = next(s for s in at.selectbox if s.label == "Mit welchen Belegen testen?")
+    assert auswahl.value == "Geprüfte Belege dieser Kategorie (2)"
+    assert any("1 mit Fehler, 1 fehlerfrei" in m.value for m in at.markdown)
+    assert not any(b.key == "laufknopf_beispiele_ablegen" for b in at.button)  # nur für Drive-Ordner
+    # Klick im Fenster wie in test_beispielbelege_zum_pruefen_ablegen nachgestellt
+    at.session_state["laeuft_probelauf"] = True
+    A.knopf(at, "Testen").click().run()
+    A.knopf(at, "Testen").click().run()
+    A.keine_fehler(at)
+    t = at.session_state["testlauf_uebernachtung"]
+    assert t["gepruefte"] and set(t["muster"]) == {"h1.png", "h2.png"}
+    assert t["muster"]["h1.png"]["kategorie"] == "uebernachtung"
+    texte = [m.value for m in at.markdown]
+    assert any("Belegart richtig erkannt: **0 von 2**" in x for x in texte), texte  # KI-Attrappe: Restaurant

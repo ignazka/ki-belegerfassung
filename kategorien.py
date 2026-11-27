@@ -261,6 +261,8 @@ AUFGABE
    - Nur allgemeingültige Regeln – keine Einzelheiten eines Belegs (keine Namen, Beträge, Daten, Orte).
    - Stütze dich nur auf das, was in den Fällen steht ("beleg_laut_ki", Kommentar, Korrekturen). Wenn
      unklar ist, was einen Beleg ausmacht, lieber eine Rückfrage als ein geratener Vorschlag.
+     "beleg_laut_ki" zeigt auch, woran die KI gezweifelt hat (belegart_unsicher, fehlende_pflichtangaben,
+     Begründungen); fehlende Angaben gab es auf dem Beleg nicht oder sie waren leer.
    - Lieber ein Vorschlag, der mehrere Fälle abdeckt, als viele kleine.
    - Ein Vorschlag ergänzt GENAU EIN Feld GENAU EINER bestehenden Kategorie (Schlüssel aus dem
      Kategorie-Wissen): "erkennungsmerkmale" | "abgrenzung" | "pflichtangaben" | "nachfragen_wenn".

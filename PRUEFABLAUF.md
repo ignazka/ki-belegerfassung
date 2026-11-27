@@ -291,7 +291,10 @@ die Prüfungen im Tab „Belege“ gerade.
 
 Datei: `testlauf.py`, `App.py` (`_zeige_testlauf`)
 
-Im Tab „Kategorien“ öffnet der Button **„Testen“** (unter dem Formular einer Kategorie) ein Fenster mit dem **Probelauf mit Beispielbelegen**. Kategorien wählt man ganz oben in der Auswahlliste; der Button „Neue Kategorie“ daneben legt eine neue an. Die Beispielbelege
+Im Tab „Kategorien“ öffnet der Button **„Testen“** (unter dem Formular einer Kategorie) ein Fenster mit dem **Probelauf**.
+Gibt es schon **geprüfte Belege dieser Kategorie** (KI-Wahl oder richtige Belegart), stehen sie an erster
+Stelle: bis zu 15, je etwa zur Hälfte mit Fehler (soll die Änderung beheben) und fehlerfrei (darf nicht
+kaputtgehen); ihre Prüfung ist die Musterlösung. Alternativ: Kategorien wählt man ganz oben in der Auswahlliste; der Button „Neue Kategorie“ daneben legt eine neue an. Die Beispielbelege
 liegen im passenden Ordner unter `Anlage KI Assistent/` (z. B. „Bewirtungsbeleg Deutschland“). Neue
 Beispiele lassen sich direkt in der App hochladen.
 
@@ -393,14 +396,18 @@ ein spezielles Texterkennungs-Modell (OCR) als zusätzliche Gegenprobe für best
 
 ### Aus Korrekturen lernen (Tab „Auswertung“)
 
-Datei: `App.py` (`_aus_korrekturen_lernen`, `_lernfaelle`), Prompt `kategorien.py` (`LERN_PROMPT`)
+Datei: `App.py` (`_aus_korrekturen_lernen`, `_lernfaelle`), `lernen.py`, Prompt `kategorien.py` (`LERN_PROMPT`)
 
-Erst sammeln, dann in Runden abarbeiten – der Prompt ändert sich nie automatisch.
+Erst sammeln, dann in Runden abarbeiten – der Prompt ändert sich nie automatisch. Es wird kein Modell
+trainiert, nur der Text der Kategorie-Beschreibungen ergänzt.
 
 1. **Fälle**: alle bewerteten Belege (jüngste Bewertung, Filter beachtet), die korrigiert, kommentiert oder
    nachgefragt wurden – höchstens 60, die neuesten zuerst. Pro Fall gehen an das Modell: Belegart der KI und
    die richtige, geänderte Felder (vorher/nachher), Nachfragegründe der KI, Kommentar/Begründung des Menschen
-   und Eckdaten des Belegs laut KI (Aussteller, Ausland, Begründung der Belegart, Hinweise).
+   und Eckdaten des Belegs laut KI (Aussteller, Begründungen, Zweifel, fehlende Pflichtangaben, Konto, Hinweise).
+   - **Ohne KI einsortiert:** nur „Unsicher gelesen“, sonst alles richtig und kein Kommentar → Lesefehler.
+   - **Ältere Fälle ausgelassen:** Wurde die Kategorie (KI-Wahl oder richtige) nach der Analyse inhaltlich
+     geändert, ist der Fehler vielleicht schon behoben. Per Häkchen lassen sie sich doch einbeziehen.
 2. **„Verbesserungsvorschläge erstellen“** (großes Modell, ein Aufruf). Das Modell ordnet jeden Fall einer
    Ursache zu – *Regel fehlte*, *Unnötige Nachfrage*, *Lesefehler* (auch „Unsicher gelesen“, weil zwei
    Lesungen abwichen), *Bewertung widersprüchlich*, *Unklar* – und schlägt für Regel-Fälle je einen Satz
@@ -409,10 +416,18 @@ Erst sammeln, dann in Runden abarbeiten – der Prompt ändert sich nie automati
 3. **Absicherung im Code** (`lern_antwort_pruefen`): nur bestehende Kategorien und erlaubte Felder,
    Fallnummern im gültigen Bereich; ein Vorschlag aus nur einem Fall gilt immer als „Einzelfall“.
 4. **„In Kategorie übernehmen“** setzt den Satz als **ungespeicherte Änderung** in das Feld der Kategorie im
-   Tab „Kategorien“ (mit Hinweis). Dort prüfen, mit „Testen“ den Probelauf machen und erst dann speichern –
-   das erzeugt eine neue Prompt-Version, deren Wirkung die Auswertung vorher/nachher zeigt.
+   Tab „Kategorien“ (mit Hinweis). Dort prüfen, mit „Testen“ den Probelauf machen (am besten mit „Geprüfte
+   Belege dieser Kategorie“) und erst dann speichern. Die Kategorie-Version merkt sich, aus welcher Runde der
+   Satz stammt (`aus_lernrunde`); die Tabelle **„Wirkung übernommener Vorschläge“** zeigt den Anteil fehlerhafter
+   Belege der Kategorie vor und nach dem Speichern.
 5. Widersprüchliche Bewertungen werden extra genannt, damit man sie im Tab „Belege“ (Ansicht „Mit
-   Kommentar“) über „Korrigieren“ richtigstellt. Die Vorschläge selbst werden nicht gespeichert (nur in der laufenden Sitzung).
+   Kommentar“) über „Korrigieren“ richtigstellt. Jede Runde wird in `lernrunden/` gespeichert; die jüngste
+   ist auch nach dem Neuladen zu sehen.
+
+**Warum mehr Fälle bessere Vorschläge bringen:** Es zählen nur geprüfte Belege mit Korrektur, Kommentar oder
+Nachfrage, nicht die bloße Zahl der Analysen. Ein einzelner Fehler kann Zufall sein, dieselbe Verwechslung bei
+mehreren Belegen ist ein Muster. Daraus entsteht eine allgemeine Regel statt einer, die nur auf einen Beleg
+passt, und Lesefehler lassen sich besser von fehlendem Wissen trennen. Unter 20 Fällen weist die App darauf hin.
 
 ## Was nicht abgesichert ist
 

@@ -358,6 +358,17 @@ def analysen_laden() -> list[dict]:
     return _eintraege_laden("analysen")
 
 
+# „Aus Korrekturen lernen“: jede Runde (Fälle, Ursachen, Vorschläge) – damit sie nach dem Neuladen noch da ist
+# und sich später nachvollziehen lässt, welcher Vorschlag übernommen wurde und was er bewirkt hat.
+
+def lernrunde_speichern(eintrag: dict) -> None:
+    _eintrag_speichern("lernrunden", eintrag)
+
+
+def lernrunden_laden() -> list[dict]:
+    return _eintraege_laden("lernrunden")
+
+
 # ---------------------------------------------------------------------------
 # Beleg entfernen (z. B. falsch hochgeladen): in den Papierkorb statt endgültig löschen
 # ---------------------------------------------------------------------------

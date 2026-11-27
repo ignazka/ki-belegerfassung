@@ -37,7 +37,8 @@ anhand gesammelter Korrekturen verbessert (Abschnitt 5).
 | `checks.py` | Rechenprüfungen und Nachfragegründe (inkl. Einordnung „rein fachlich“) |
 | `prompts.py` | System-Prompt-Vorlage, `PROMPT_VERSION` |
 | `kategorien.py` | Kategorie-Wissen: Versionen → aktueller Stand → Prompt-Abschnitt; KI-Assistent; Prompt für „Aus Korrekturen lernen“ |
-| `testlauf.py` | Probelauf einer Kategorie-Änderung (vorher/nachher) mit Beispielbelegen |
+| `testlauf.py` | Probelauf einer Kategorie-Änderung (vorher/nachher) mit geprüften Belegen oder Beispielbelegen |
+| `lernen.py` | „Aus Korrekturen lernen“ ohne Oberfläche: Vorsortieren, veraltete Fälle, Wirkung, Auswahl geprüfter Testbelege |
 | `lesequalitaet.py` | Welche Lesung lag richtig? (Auswertung) |
 | `kalender.py` | Abgleich Bewirtung/Übernachtung mit dem Firmenkalender |
 | `kalender_verbindung.py` | „Kalender verbinden“: Google-Anmeldung nur für Kalender lesen, Rücksprung prüfen, Zugang verschlüsseln |
@@ -152,7 +153,9 @@ Menschen pflegen, und über **Messung**:
 
 ### 5.2 Vor dem Speichern testen (Probelauf)
 
-`testlauf.py`: Beispielbelege aus `Anlage KI Assistent/<Ordner>/` werden einmal mit dem gespeicherten und
+`testlauf.py`: Geprüfte Belege der Kategorie (`lernen.testbelege_auswaehlen`, je zur Hälfte mit Fehler und
+fehlerfrei; Originale per `App._gepruefte_daten`, mehrseitige als Dateiliste) oder Beispielbelege aus
+`Anlage KI Assistent/<Ordner>/` werden einmal mit dem gespeicherten und
 einmal mit dem geänderten (noch ungespeicherten) Wissen komplett analysiert; Ergebnis: wie oft die Kategorie
 erkannt wurde, wie viele Nachfragen, ein Fazit („Die Änderung hilft“ …). Es wird nichts gespeichert.
 Dazu das **Konto** je Beleg und Variante: Während des Laufs erlaubt `konten_vereinigen` alle Konten beider
@@ -185,14 +188,19 @@ Auswertung), `erwartet_fuer` nimmt deren Belegart als Erwartung.
 ### 5.4 Aus Korrekturen lernen
 
 1. Fälle = geprüfte Belege mit Korrektur, Kommentar oder Nachfrage (höchstens 60, neueste zuerst).
+   `lernen.vorsortiert` nimmt eindeutige Lesefehler (nur „Unsicher gelesen“, sonst alles richtig) heraus;
+   `lernen.wissensaenderungen` + `veraltet` lassen Fälle aus, deren Kategorie nach der Analyse inhaltlich
+   geändert wurde (Häkchen „Auch ältere Fälle einbeziehen“). Analysezeit: `App._analysezeit`.
 2. Ein Aufruf des großen Modells (`kategorien.LERN_PROMPT`) mit dem Kategorie-Wissen und den Fällen: Es
    ordnet jeden Fall einer Ursache zu (*Regel fehlte*, *Unnötige Nachfrage*, *Lesefehler*, *Bewertung
    widersprüchlich*, *Unklar*) und schlägt Sätze vor, die genau ein Feld einer Kategorie ergänzen.
 3. `kategorien.lern_antwort_pruefen` sichert ab: nur bestehende Kategorien/Felder, gültige Fallnummern,
    ein Vorschlag aus nur einem Fall gilt als „Einzelfall“.
 4. „In Kategorie übernehmen“ setzt den Satz als **ungespeicherte Änderung** in den Kategorien-Tab. Ein Mensch
-   prüft, macht den Probelauf und speichert → neue Kategorie-Version → neue Prompt-Version → die Auswertung
-   zeigt, ob es besser wurde.
+   prüft, macht den Probelauf und speichert → neue Kategorie-Version mit `aus_lernrunde` → neue
+   Prompt-Version. `App._lern_wirkung` zeigt je gespeichertem Vorschlag den Anteil fehlerhafter Belege der
+   Kategorie vor/nach dem Speichern (`lernen.wirkung`).
+5. Jede Runde landet in `lernrunden/`; die jüngste wird nach dem Neuladen wieder angezeigt.
 
 **Kurz:** Daten sammeln (Prüfungen) → Muster finden (großes Modell, Vorschlag) → Mensch entscheidet und testet
 → Prompt ändert sich versioniert → Wirkung messen. Nichts davon läuft automatisch ohne menschliche Freigabe.
@@ -214,6 +222,7 @@ schreibt mit dem Refresh-Token des Ordner-Besitzers (`drive_token_holen.py`). Oh
 ├── analysen/          eine JSON-Datei je Analyse
 ├── feedback/          eine JSON-Datei je Prüfung
 ├── kategorien/        eine JSON-Datei je Kategorie-Version
+├── lernrunden/        eine JSON-Datei je Runde „Aus Korrekturen lernen“
 ├── kalender_zugang/   Kalender-Verbindung (Zugang verschlüsselt, gewählte Kalender), jüngster Eintrag gilt
 ├── nachfragen/        ältere Nachfragen (vor 2026-11-18), nur noch gelesen
 ├── entscheidungen/    Entscheidungen der ersten Nachfragen-Version, nur noch gelesen
@@ -298,9 +307,14 @@ der früheren Version. `korrektur_von`/`kommentar_vorher` nur, wenn eine früher
   "zeitpunkt": "2026-11-17T10:00:00", "schluessel": "reisekosten_mitarbeiter", "name": "Reisekosten - Mitarbeiter",
   "beschreibung": "…", "erkennungsmerkmale": "…", "abgrenzung": "…",
   "pflichtangaben": ["Name des Mitarbeiters", "Reisezeitraum"], "nachfragen_wenn": "…",
-  "status": "aktiv", "version": 3, "bearbeiter": "…"
+  "status": "aktiv", "version": 3, "bearbeiter": "…",
+  "aus_lernrunde": [{"runde": "2026-11-27T10:00:00", "feld": "abgrenzung", "text": "…"}]  // nur wenn übernommen
 }
 ```
+
+**`lernrunden/`** – eine Runde „Aus Korrekturen lernen“ (`App._aus_korrekturen_lernen`): `erstellt` (Kennung
+der Runde), `faelle [{nr, ursache, kurz}]`, `vorschlaege`, `rueckfragen`, `dateien`/`shas` (je Fallnummer),
+`anzahl`, `vorsortiert`, `ausgelassen_veraltet`, `modell`, `prompt_version`, `bearbeiter`.
 
 **`kalender_zugang/`** – Verbindung aus der Seitenleiste (`storage.kalender_ruecksprung`,
 `kalender_auswahl_speichern`, `kalender_trennen`):
@@ -317,8 +331,7 @@ verschlüsselt; eine Kopie der Datei allein reicht nicht für den Kalenderzugrif
 
 ### 6.4 Was nicht gespeichert wird
 
-Die Verbesserungsvorschläge („Aus Korrekturen lernen“) leben nur in der laufenden Sitzung; Probelauf-
-Ergebnisse ebenso. Gespeichert wird erst, was ein Mensch übernimmt (Kategorie-Version, Prüfung).
+Probelauf-Ergebnisse leben nur in der laufenden Sitzung. Gespeichert wird erst, was ein Mensch übernimmt (Kategorie-Version, Prüfung).
 
 ---
 

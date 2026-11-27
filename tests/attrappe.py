@@ -15,7 +15,7 @@ from PIL import Image
 from streamlit.testing.v1 import AppTest
 
 APP = Path(__file__).resolve().parents[1] / "App.py"
-ARTEN = ("analysen", "nachfragen", "feedback", "entscheidungen", "kategorien")
+ARTEN = ("analysen", "nachfragen", "feedback", "entscheidungen", "kategorien", "lernrunden")
 SPEICHER: dict[str, list[dict]] = {art: [] for art in ARTEN}
 KI: dict = {}  # analyse (dict), gruende (list) für beleg_lesen; text_antwort (dict) für text_anfrage_json
 ANFRAGEN: list[str] = []  # Nachrichten an text_anfrage_json
@@ -99,6 +99,7 @@ def einsetzen() -> None:
     storage.feedback_speichern = _anhaengen("feedback")
     storage.entscheidung_speichern = _anhaengen("entscheidungen")
     storage.kategorie_speichern = _anhaengen("kategorien")
+    storage.lernrunde_speichern = _anhaengen("lernrunden")
     storage.nachfrage_speichern = lambda e: _anhaengen("nachfragen")(e) or True
     storage.schon_bewertet = lambda sha: any(f.get("datei_sha256") == sha for f in SPEICHER["feedback"])
     storage.beleg_speichern = lambda daten, name, sha: f"belege/{name}"

@@ -47,7 +47,9 @@ Tabs (in `App.py`):
 4. **Auswertung** – nur Kennzahlen: Belege/geprüft, Nachfragen, *unnötige* Nachfragen, Trefferquote
    (Belegart, Felder, pro Feld/Belegart, Verwechslungen) und **„Aus Korrekturen lernen“**: großes Modell
    ordnet Korrekturen Ursachen zu und schlägt Ergänzungen für Kategorien vor; Übernahme nur als
-   ungespeicherte Änderung im Kategorien-Tab (Mensch prüft, testet, speichert).
+   ungespeicherte Änderung im Kategorien-Tab (Mensch prüft, testet, speichert). `lernen.py`: eindeutige
+   Lesefehler ohne KI, Fälle mit seither geänderter Kategorie ausgelassen, Wirkung gespeicherter Vorschläge
+   (Fehlerquote vorher/nachher). Probelauf auch mit geprüften Belegen der Kategorie (Musterlösung).
    Dazu **„Lesequalität“** (`lesequalitaet.py`): welche Lesung je Feld richtig lag – Grundlage für die
    Entscheidung über ein zusätzliches OCR-Modell (Plan: Stufe 2, Vergleichsskript mit lokalem OCR) – und
    **„Wann hilft der Schiedsrichter?“** (je Auslöser: aufgelöst / anders gelesen / besser–schlechter).
@@ -116,7 +118,8 @@ nutzt, in den **Drive-Papierkorb** (30 Tage wiederherstellbar; lokal `data/papie
 | `feedback/` | jede menschliche Prüfung: `kategorie {modell, korrekt, richtig}`, `felder{key: {modell, korrekt, richtig}}`, `kommentar`, `quelle` (`nachfrage`/`pruefung`/fehlt = altes Feedback), ggf. `korrektur_von`, `kommentar_vorher` |
 | `entscheidungen/` | Entscheidungen der ersten Nachfragen-Version, nur noch gelesen |
 | `kalender_zugang/` | Kalender-Verbindung: `verbunden`, `konto`, `token_verschluesselt`, `kalender [{id, name}]`; jüngster Eintrag gilt, `verbunden: false` = getrennt |
-| `kategorien/` | Kategorie-Versionen; lesbare Kopien als Google-Doc in `Anlage KI Assistent/<Kategorie>/` |
+| `kategorien/` | Kategorie-Versionen (ggf. `aus_lernrunde`: übernommene Lernvorschläge); lesbare Kopien als Google-Doc in `Anlage KI Assistent/<Kategorie>/` |
+| `lernrunden/` | jede Runde „Aus Korrekturen lernen“ (Ursachen, Vorschläge); die jüngste wird wieder angezeigt |
 
 `App._alle_belege()` führt das pro Hash zusammen. Formate nur **erweitern**, nie umbenennen – alte
 Einträge müssen lesbar bleiben.
