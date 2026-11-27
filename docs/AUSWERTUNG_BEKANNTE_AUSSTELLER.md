@@ -115,6 +115,47 @@ lagen Tage dazwischen: Die KI kannte die Kategorie und hat trotzdem „Sonstiger
 
 ---
 
+## Hintergrund: Wie das Programm Aussteller „automatisch kennt“
+
+Nicht die KI kennt die Aussteller, sondern der Python-Code. Die Liste steht **nicht im Prompt**: Die KI
+liest nur den Namen ab (`restaurant_name`), den Abgleich macht danach der Code. Deshalb ändert sich durch
+neue bekannte Aussteller auch die Prompt-Version nicht.
+
+**Wann die Liste entsteht:** Streamlit führt `App.py` bei jedem Klick neu aus. Dabei ruft die App
+`_merkmale_bereitstellen()` auf:
+
+```python
+auto = merkmale.aus_bewertungen([b["bewertung"] for b in _alle_belege() if b.get("bewertung")])
+merkmale.registrieren(merkmale.aus_kategorien(KAT_STAND), auto)
+```
+
+`registrieren` legt das Ergebnis in die globale Variable `merkmale._BEKANNT`. Dort liest `merkmale.nachschlagen()`
+während der Analyse. Weil die Liste bei jedem Durchlauf neu berechnet wird, gibt es nichts Gespeichertes, das
+veralten kann: Wird eine Prüfung korrigiert, gilt die neue Liste beim nächsten Klick.
+
+**Automatisch bekannt vs. von Hand eingetragen:**
+
+| | Automatisch (aus Prüfungen) | Von Hand (Tab „Kategorien“) |
+|---|---|---|
+| Quelle | `aus_bewertungen`: ≥ 2 Prüfungen, immer dieselbe Belegart | `aus_kategorien`: Tabelle „Bekannte Aussteller“ |
+| KI wählt dieselbe Belegart | „Belegart unsicher“ entfällt | „Belegart unsicher“ entfällt |
+| KI wählt eine andere Belegart | Nachfrage | Nachfrage |
+| KI wählt „Sonstiger Beleg“ | Nachfrage | Belegart wird automatisch richtiggestellt |
+| Widerspruch zwischen beiden | Eintrag von Hand gilt | Eintrag von Hand gilt |
+
+**Beispiel mit den DB-Tickets:**
+
+1. 24.11. – erstes DB-Ticket als „Reisekosten Mitarbeiter“ geprüft → 1 Prüfung, noch nicht bekannt.
+2. 27.11. – zweites DB-Ticket, dieselbe Belegart → 2 Prüfungen, eine Belegart → beim nächsten Klick steht
+   `dbfernverkehr → reisekosten_mitarbeiter` in der Liste.
+3. Nächstes DB-Ticket: Die KI liest „DB Fernverkehr AG“ und wählt wieder „Sonstiger Beleg“.
+   `nachschlagen` findet den Eintrag, `_aussteller_abgleich` sieht die andere Belegart → Nachfrage
+   „Bekannter Aussteller: … gehört bei 2 geprüften Belegen zu ‚Reisekosten Mitarbeiter‘ …“.
+4. Wäre „DB Fernverkehr“ von Hand eingetragen, würde stattdessen `belegart_richtigstellen` die Belegart
+   gleich auf Reisekosten setzen.
+
+---
+
 ## Was der Code jetzt bei einem neuen Beleg tut
 
 Ablauf in `pipeline.beleg_lesen()`, sobald die Lesungen da sind:
