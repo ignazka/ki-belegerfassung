@@ -159,8 +159,9 @@ def schiedsrichter_wirkung(belege: list[dict]) -> dict[str, dict]:
             continue  # ohne Schiedsrichter oder ohne erste Lesung nichts zu vergleichen
         basis = kleine[0]
 
-        ausloeser = {grund_art(g) for g in nachfragen_gruende(basis, pruefen(basis))}
-        nachher = {grund_art(g) for g in nachfragen_gruende(gross, pruefen(gross))}
+        # ohne bekannte Aussteller: die Liste von heute gab es damals noch nicht
+        ausloeser = {grund_art(g) for g in nachfragen_gruende(basis, pruefen(basis), mit_merkmalen=False)}
+        nachher = {grund_art(g) for g in nachfragen_gruende(gross, pruefen(gross), mit_merkmalen=False)}
         aufgeloest = {a: a not in nachher for a in ausloeser}
         if len(kleine) == 2:
             diff = abweichungen(kleine[0], kleine[1])

@@ -193,6 +193,9 @@ def als_dokument(k: dict) -> str:
              f"SKR04-Konto: {konto_text(k) or 'noch nicht festgelegt'}"]
     teile += [f"  Ausnahme: {skr04.als_text(a['konto'], a['bezeichnung'])}, wenn {a['wenn']}"
               for a in konto_ausnahmen(k)]
+    aussteller = [m.get("wert") for m in k.get("bekannte_merkmale") or [] if isinstance(m, dict) and m.get("wert")]
+    if aussteller:
+        teile.append("Bekannte Aussteller: " + "; ".join(aussteller))
     teile.append("")
     for feld in FELDER:
         text = _als_text(k.get(feld))

@@ -255,3 +255,22 @@ def test_probelauf_mit_geprueften_belegen(monkeypatch):
     assert t["muster"]["h1.png"]["kategorie"] == "uebernachtung"
     texte = [m.value for m in at.markdown]
     assert any("Belegart richtig erkannt: **0 von 2**" in x for x in texte), texte  # KI-Attrappe: Restaurant
+
+
+def test_bekannte_aussteller():
+    """Von Hand eingetragene Aussteller bleiben beim Speichern erhalten; aus Prüfungen bekannte werden angezeigt;
+    beides gilt für den Abgleich (merkmale.nachschlagen)."""
+    import merkmale
+    hotel = {"schluessel": "uebernachtung", "version": 1, "zeitpunkt": "2026-11-21T10:00:00",
+             "bekannte_merkmale": [{"art": "aussteller", "wert": "Hotel Am Markt", "anmerkung": "Messe"}]}
+    bewertungen = [A.bewertung(sha, ki_kat="uebernachtung") for sha in ("h1", "h2")]
+    for f in bewertungen:
+        f["felder"]["restaurant_name"] = {"modell": "Pension Sonne", "korrekt": "Pension Sonne", "richtig": True}
+    at = A.app(kategorien=[hotel], feedback=bewertungen)
+    assert merkmale.nachschlagen("Hotel am Markt GmbH")["kategorie"] == "uebernachtung"
+    assert merkmale.nachschlagen("Pension Sonne")["quelle"] == "belege"
+    at.selectbox(key="kategorie_wahl").set_value("uebernachtung").run()
+    A.keine_fehler(at)
+    assert any("Aus geprüften Belegen schon bekannt: Pension Sonne (2×)" in c.value for c in at.caption)
+    _speichern(at)
+    assert A.SPEICHER["kategorien"][-1]["bekannte_merkmale"] == hotel["bekannte_merkmale"]

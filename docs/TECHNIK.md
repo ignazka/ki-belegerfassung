@@ -38,6 +38,7 @@ anhand gesammelter Korrekturen verbessert (Abschnitt 5).
 | `prompts.py` | System-Prompt-Vorlage, `PROMPT_VERSION` |
 | `kategorien.py` | Kategorie-Wissen: Versionen → aktueller Stand → Prompt-Abschnitt; KI-Assistent; Prompt für „Aus Korrekturen lernen“ |
 | `testlauf.py` | Probelauf einer Kategorie-Änderung (vorher/nachher) mit geprüften Belegen oder Beispielbelegen |
+| `merkmale.py` | Bekannte Aussteller (von Hand je Kategorie + automatisch aus Prüfungen), toleranter Abgleich für `checks.py` |
 | `lernen.py` | „Aus Korrekturen lernen“ ohne Oberfläche: Vorsortieren, veraltete Fälle, Wirkung, Auswahl geprüfter Testbelege |
 | `lesequalitaet.py` | Welche Lesung lag richtig? (Auswertung) |
 | `kalender.py` | Abgleich Bewirtung/Übernachtung mit dem Firmenkalender |
@@ -150,6 +151,11 @@ Menschen pflegen, und über **Messung**:
 - **Prompt-Version** = `PROMPT_VERSION` + `+k` + Fingerabdruck des aktiven Kategorie-Wissens
   (`kategorien.wissens_hash`, 6 Zeichen), z. B. `2026-11-17.5+k3af32b`. Jede Analyse und Prüfung speichert sie
   → die Auswertung kann nach Version filtern und vorher/nachher vergleichen.
+
+**Bekannte Aussteller:** `App._merkmale_bereitstellen` setzt bei jedem Durchlauf die Liste aus den Kategorien
+(`bekannte_merkmale`) und aus den jüngsten Prüfungen (`merkmale.aus_bewertungen`) – `merkmale.registrieren`,
+wie `kategorien_registrieren`. `checks._aussteller_abgleich` nutzt sie; `lesequalitaet` rechnet alte Lesungen mit
+`mit_merkmalen=False` nach (die heutige Liste gab es damals nicht). Wirkt nicht getrennt im Probelauf.
 
 ### 5.2 Vor dem Speichern testen (Probelauf)
 
@@ -308,7 +314,8 @@ der früheren Version. `korrektur_von`/`kommentar_vorher` nur, wenn eine früher
   "beschreibung": "…", "erkennungsmerkmale": "…", "abgrenzung": "…",
   "pflichtangaben": ["Name des Mitarbeiters", "Reisezeitraum"], "nachfragen_wenn": "…",
   "status": "aktiv", "version": 3, "bearbeiter": "…",
-  "aus_lernrunde": [{"runde": "2026-11-27T10:00:00", "feld": "abgrenzung", "text": "…"}]  // nur wenn übernommen
+  "aus_lernrunde": [{"runde": "2026-11-27T10:00:00", "feld": "abgrenzung", "text": "…"}],  // nur wenn übernommen
+  "bekannte_merkmale": [{"art": "aussteller", "wert": "Hotel Am Markt", "anmerkung": "…"}]   // `art` offen für mehr
 }
 ```
 

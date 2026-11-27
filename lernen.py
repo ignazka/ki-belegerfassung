@@ -31,8 +31,9 @@ def vorsortiert(bewertung: dict, gruende: list[str]) -> str | None:
 
 
 def _wissen(k: dict) -> tuple:
-    """Was die KI von einer Kategorie erfährt (ohne Konten): Name, Beschreibungsfelder, aktiv oder nicht."""
-    return tuple(_als_text(k.get(f)) for f in ("name",) + FELDER) + (k.get("status") or "aktiv",)
+    """Was die Einordnung beeinflusst (ohne Konten): Name, Beschreibungsfelder, aktiv oder nicht, bekannte Aussteller."""
+    aussteller = sorted(str(m.get("wert")) for m in k.get("bekannte_merkmale") or [] if isinstance(m, dict))
+    return tuple(_als_text(k.get(f)) for f in ("name",) + FELDER) + (k.get("status") or "aktiv", tuple(aussteller))
 
 
 def wissensaenderungen(versionen: list[dict]) -> dict[str, str]:

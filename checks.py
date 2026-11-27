@@ -16,7 +16,9 @@ from beleg_schema import (
     mwst_aus_brutto,
     mwst_aus_netto,
     summe,
+    gueltige_kategorien,
 )
+import merkmale
 
 TOLERANZ = TOLERANZ_SUMME
 TRINKGELD_MAX_ANTEIL = 0.30
@@ -93,14 +95,33 @@ def pruefen(a: BelegAnalyse) -> list[str]:
     return befunde
 
 
-def _gruende_mit_art(a: BelegAnalyse, befunde: list[str]) -> list[tuple[str, bool]]:
+def _aussteller_abgleich(a: BelegAnalyse) -> tuple[bool, str | None]:
+    """Bekannte Aussteller (merkmale.py) -> (Belegart bestätigt, Nachfragegrund bei Widerspruch oder None)."""
+    m = merkmale.nachschlagen(a.restaurant_name)
+    if m is None or a.kategorie == "unlesbar":
+        return False, None
+    if merkmale.gruppe(m["kategorie"]) == merkmale.gruppe(a.kategorie):
+        return True, None
+    namen = gueltige_kategorien()
+    erwartet = ("Bewirtung" if merkmale.gruppe(m["kategorie"]) == "bewirtung"
+                else namen.get(m["kategorie"], m["kategorie"]))
+    woher = "laut Kategorie-Einstellungen" if m["quelle"] == "hand" else f"bei {m['anzahl']} geprüften Belegen"
+    return False, (f"Bekannter Aussteller: „{m['name']}“ gehört {woher} zu „{erwartet}“, die KI hat "
+                   f"„{namen.get(a.kategorie, a.kategorie)}“ gewählt.")
+
+
+def _gruende_mit_art(a: BelegAnalyse, befunde: list[str], mit_merkmalen: bool = True) -> list[tuple[str, bool]]:
     """(Grund, fachlich). fachlich = genaueres Lesen ändert nichts (z. B. Auslandsbeleg) – dann bringt der
-    Schiedsrichter nichts, ein Mensch muss trotzdem draufschauen. Im Zweifel NICHT fachlich."""
+    Schiedsrichter nichts, ein Mensch muss trotzdem draufschauen. Im Zweifel NICHT fachlich.
+    mit_merkmalen=False: ohne Abgleich mit bekannten Ausstellern (Nachrechnen alter Lesungen)."""
     gruende = []
+    bestaetigt, widerspruch = _aussteller_abgleich(a) if mit_merkmalen else (False, None)
     if not a.lesbar or a.kategorie == "unlesbar":
         gruende.append(("Beleg nicht (vollständig) lesbar.", False))
-    if a.kategorie_unsicher:  # großes Modell ordnet oft sicherer ein
+    if a.kategorie_unsicher and not bestaetigt:  # großes Modell ordnet oft sicherer ein
         gruende.append((f"Belegart unsicher: {a.kategorie_grund or 'ohne Begründung'}", False))
+    if widerspruch:  # großes Modell liest Aussteller/Belegart evtl. anders -> nicht fachlich
+        gruende.append((widerspruch, False))
     if a.kategorie == "sonstiger_beleg":
         gruende.append(("Belegart keiner bekannten Kategorie zuzuordnen.", False))
     if a.kategorie == "nur_ec_beleg":
@@ -140,9 +161,9 @@ def immer_berechtigt(grund: str) -> bool:
     return grund.startswith(_IMMER_BERECHTIGT) or bool(re.match(r"Nur \d+ von \d+ Seiten gelesen", grund))
 
 
-def nachfragen_gruende(a: BelegAnalyse, befunde: list[str]) -> list[str]:
+def nachfragen_gruende(a: BelegAnalyse, befunde: list[str], mit_merkmalen: bool = True) -> list[str]:
     """Gründe, warum ein Mensch draufschauen muss. Leere Liste = kann automatisch weiter."""
-    return [text for text, _fachlich in _gruende_mit_art(a, befunde)]
+    return [text for text, _fachlich in _gruende_mit_art(a, befunde, mit_merkmalen)]
 
 
 def nur_fachliche_gruende(a: BelegAnalyse, befunde: list[str]) -> bool:

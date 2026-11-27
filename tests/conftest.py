@@ -13,3 +13,14 @@ for pfad in (WURZEL, Path(__file__).parent):  # Projekt-Module + tests/attrappe.
         sys.path.insert(0, str(pfad))
 os.chdir(WURZEL)  # App.py findet assets/ relativ zum Arbeitsordner
 os.environ["LOGIN_DEAKTIVIERT"] = "1"  # nur für Tests: Login überspringen
+
+import pytest  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def _keine_bekannten_aussteller():
+    """Die Liste bekannter Aussteller (merkmale.py) ist global – kein Test soll die eines anderen erben."""
+    import merkmale
+    merkmale.registrieren([], [])
+    yield
+    merkmale.registrieren([], [])

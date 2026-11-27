@@ -79,6 +79,11 @@ laufende Knopf hat – ein bloß per `disabled=` gesperrter `laufknopf_…` beh�
 lange Vorgänge genauso bauen. Zusätzlich zeigt ein orangefarbener Ladebalken oben jeden Server-Durchlauf
 (CSS auf Streamlits `stStatusWidgetRunningIcon`).
 
+**Bekannte Aussteller** (`merkmale.py`, Feld `bekannte_merkmale` der Kategorie, Tabelle im Kategorien-Tab):
+von Hand + automatisch aus Prüfungen (≥ 2×, eindeutige Belegart); Abgleich im Code (`checks._aussteller_abgleich`),
+bestätigt → „Belegart unsicher“ entfällt, Widerspruch → Nachfrage. Nicht im Prompt. Später weitere `art`en
+(Mitarbeiter braucht erst ein Lesefeld).
+
 Weitere Bausteine: doppeltes Lesen + Schiedsrichter-Modell (`pipeline.py`), Rechnen nur im Code mit
 Decimal/Cent (`beleg_schema.py`), Rechenprüfungen und Nachfrage-Regeln (`checks.py`), Abgleich mit dem
 Google-Kalender für Bewirtung/Übernachtung (`kalender.py`, s. u. „Kalender verbinden“),

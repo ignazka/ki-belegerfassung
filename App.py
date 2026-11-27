@@ -39,6 +39,7 @@ import skr04
 from kategorien import LERN_PROMPT, URSACHEN, lern_antwort_pruefen, lern_nachricht
 import lesequalitaet
 import lernen
+import merkmale
 from checks import immer_berechtigt
 from prompts import prompt_version, system_prompt
 from storage import (
@@ -1798,6 +1799,7 @@ def _kat_feld_init(praefix: str, k: dict) -> None:
         "skr04_konto": k.get("skr04_konto", ""),
         "skr04_bezeichnung": k.get("skr04_bezeichnung", ""),
         "konto_ausnahmen": [dict(a) for a in k.get("konto_ausnahmen") or []],
+        "bekannte_merkmale": [dict(m) for m in k.get("bekannte_merkmale") or []],
     }
     for feld, wert in werte.items():
         st.session_state.setdefault(f"{praefix}_{feld}", wert)
@@ -1930,6 +1932,7 @@ def zeige_kategorien():
     st.text_area("Pflichtangaben auf dem Beleg (eine pro Zeile)", key=f"{praefix}_pflichtangaben",
                  disabled=not darf, help="Fehlt eine davon auf dem Beleg, geht er zur Nachfrage.")
     st.text_area("Wann muss nachgefragt werden?", key=f"{praefix}_nachfragen_wenn", disabled=not darf)
+    _merkmale_eingabe(praefix, darf, wahl)
     _konto_eingabe(praefix, darf)
     if not standard:
         st.radio("Status", list(_KAT_STATUS), format_func=_KAT_STATUS.get, key=f"{praefix}_status",
@@ -1988,6 +1991,45 @@ def zeige_kategorien():
                    "Ausnahmen": "; ".join(f"{skr04.als_text(a['konto'], a['bezeichnung'])}, wenn {a['wenn']}"
                                           for a in konto_ausnahmen(v)) or "–"}
                   for v in sichtbare.values()])
+
+
+def _merkmale_eingabe(praefix: str, darf: bool, schluessel: str) -> None:
+    """Bekannte Aussteller der Kategorie (von Hand) + Anzeige der automatisch aus Prüfungen bekannten."""
+    ss = st.session_state
+    with st.container(key="kategorie_merkmale"):
+        st.markdown("**Bekannte Aussteller** – wer stellt Belege dieser Kategorie aus?")
+        st.caption("Liest die KI einen dieser Namen auf einem Beleg, prüft das Programm ihre Belegart gegen: Passt "
+                   "sie, entfallen ihre Zweifel an der Belegart; passt sie nicht, fragt es nach. Kleine Lesefehler "
+                   "und Zusätze wie „GmbH“ machen nichts. Wirkt ab dem Speichern (nicht im Probelauf).")
+        tabelle = st.data_editor(
+            pd.DataFrame(ss.get(f"{praefix}_bekannte_merkmale") or [], columns=["wert", "anmerkung"]),
+            key=f"{praefix}_bekannte_merkmale_tabelle", num_rows="dynamic", hide_index=True, width="stretch",
+            disabled=not darf,
+            column_config={
+                "wert": st.column_config.TextColumn("Aussteller (wie auf dem Beleg)", width="large",
+                                                    help="z. B. „Hotel Am Markt“ oder „Aral“"),
+                "anmerkung": st.column_config.TextColumn("Anmerkung (optional)", help="Nur für euch, z. B. „Stammhotel Messe“"),
+            },
+        )
+        ss[f"{praefix}_bekannte_merkmale_wert"] = tabelle.to_dict("records")
+        auto = [m for m in merkmale.bekannte()
+                if m["quelle"] == "belege" and merkmale.gruppe(m["kategorie"]) == merkmale.gruppe(schluessel)]
+        if auto:
+            auto.sort(key=lambda m: -m["anzahl"])
+            namen = ", ".join(f"{m['name']} ({m['anzahl']}×)" for m in auto[:15])
+            st.caption(f":material/auto_awesome: Aus geprüften Belegen schon bekannt: {namen}"
+                       + (f" und {len(auto) - 15} weitere" if len(auto) > 15 else "")
+                       + f". Ein Aussteller gilt als bekannt, sobald er {merkmale.MIN_BELEGE}-mal geprüft wurde und "
+                       "immer zu derselben Belegart gehörte.")
+
+
+def _merkmale_bereitstellen() -> None:
+    """Bekannte Aussteller (von Hand + aus geprüften Belegen) für den Abgleich in checks.py setzen."""
+    try:
+        auto = merkmale.aus_bewertungen([b["bewertung"] for b in _alle_belege() if b.get("bewertung")])
+    except Exception:  # Ablage nicht lesbar: nur die von Hand eingetragenen
+        auto = []
+    merkmale.registrieren(merkmale.aus_kategorien(KAT_STAND), auto)
 
 
 def _konto_eingabe(praefix: str, darf: bool) -> None:
@@ -2078,6 +2120,8 @@ def _kategorie_aus_formular(schluessel: str, name: str, praefix: str) -> dict:
         "skr04_bezeichnung": (ss.get(f"{praefix}_skr04_bezeichnung") or "").strip(),
         "konto_ausnahmen": ausnahmen_aus_tabelle(ss.get(f"{praefix}_konto_ausnahmen_wert",
                                                          ss.get(f"{praefix}_konto_ausnahmen") or []))[0],
+        "bekannte_merkmale": merkmale.aus_tabelle(ss.get(f"{praefix}_bekannte_merkmale_wert",
+                                                         ss.get(f"{praefix}_bekannte_merkmale") or [])),
     }
 
 
@@ -2613,6 +2657,7 @@ st.markdown(
 
 kopfzeile()
 _offen = _offene_nachfragen()
+_merkmale_bereitstellen()
 tab_analyse, tab_belege, tab_kategorien, tab_auswertung = st.tabs([
     ":material/upload_file: Belege hochladen",
     ":material/receipt_long: Belege" + (f" :orange-badge[{_offen} offen]" if _offen else ""),  # Plakette, Farbe per CSS

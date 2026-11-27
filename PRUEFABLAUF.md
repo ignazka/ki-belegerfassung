@@ -173,7 +173,9 @@ dabei, im Tab „Belege“ erscheint er unter „Nachfragen offen“. (Ältere N
 Gründe:
 
 - unlesbar
-- Belegart unsicher (mit Begründung der KI) oder keiner Kategorie zuzuordnen
+- Belegart unsicher (mit Begründung der KI) oder keiner Kategorie zuzuordnen – entfällt, wenn ein
+  **bekannter Aussteller** die Belegart bestätigt
+- **Bekannter Aussteller, andere Belegart** (siehe unten)
 - nur EC-Beleg, keine Rechnung
 - **Auslandsbeleg** (abweichende Handhabe laut Buchhaltung)
 - **Konto unsicher** (Beleg deutet auf eine Konto-Ausnahme der Kategorie hin, aber nicht sicher)
@@ -185,6 +187,13 @@ Gründe:
 - mehr als 20 Seiten
 - **kein passender Kalendertermin** zu einer Bewirtung oder Übernachtung (siehe Abschnitt 7a), oder der
   Kalender ist nicht erreichbar
+
+**Bekannte Aussteller** (`merkmale.py`): Aussteller, die zu einer Belegart gehören – von Hand im Tab
+„Kategorien“ eingetragen (hat Vorrang) oder automatisch aus geprüften Belegen (mindestens 2-mal geprüft, immer
+dieselbe Belegart; Bewirtungs-Unterarten zählen als eine). Der Code gleicht den gelesenen Aussteller tolerant ab
+(Groß/klein, „GmbH“ & Co., kleine Lesefehler, Teiltreffer ab 4 Zeichen). Passt die Belegart der KI, entfällt
+„Belegart unsicher“ – oft ohne Schiedsrichter. Passt sie nicht: Nachfrage, das große Modell darf nachsehen.
+Nicht im Prompt, die Prompt-Version ändert sich dadurch nicht.
 
 ## 7a. Abgleich mit dem Firmenkalender
 

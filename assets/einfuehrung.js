@@ -54,6 +54,10 @@
       text: "Hier legt ihr fest, welche Belegarten die KI kennt und woran sie sie erkennt. Oben eine Kategorie " +
             "auswählen, daneben über „Neue Kategorie“ eine neue anlegen. Beschreibt sie so, wie ihr es einem neuen " +
             "Kollegen erklären würdet." },
+    { tab: 2, ziel: () => ersterSichtbarer(".st-key-kategorie_merkmale"), titel: "Bekannte Aussteller",
+      text: "Wer stellt Belege dieser Art aus – z. B. euer Stammhotel? Liest die KI einen dieser Namen, prüft das " +
+            "Programm ihre Belegart gegen und fragt nach, wenn sie nicht passt. Aussteller, die ihr schon " +
+            "mehrfach geprüft habt, kennt es automatisch." },
     { tab: 2, ziel: () => ersterSichtbarer(".st-key-kategorie_konto"), titel: "Konto für sevDesk",
       text: "Jede Kategorie bekommt ein SKR04-Konto, damit sevDesk den Beleg später richtig bucht. In der Liste " +
             "nach Nummer oder Stichwort suchen – das füllt Nummer und Bezeichnung aus. Beides lässt sich ändern " +
