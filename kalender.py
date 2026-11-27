@@ -18,8 +18,16 @@ Regeln (bewusst einfach und nachvollziehbar, Werte unten anpassbar):
   vorkommt ODER er zeitlich zur Uhrzeit auf dem Beleg passt (beginnt höchstens BEWIRTUNG_VORHER_H Stunden
   vor der Zahlung, endet frühestens BEWIRTUNG_NACHHER_H Stunden davor) UND nach Essen klingt
   (ESSENS_HINWEISE). Uhrzeit allein reicht nicht – sonst gälte z. B. „Zahnarzt“ als Geschäftsessen.
-- Übernachtung: Termin im Zeitraum ÜBERNACHTUNG_TAGE vor bis 1 Tag nach dem Belegdatum, der mehrtägig ist
-  oder dessen Titel/Ort Hotel bzw. Stadt nennt.
+- Übernachtung: Termin im Zeitraum ÜBERNACHTUNG_TAGE vor bis 1 Tag nach dem Belegdatum, dessen Titel/Ort
+  Hotel bzw. Stadt nennt – oder eine Reise: mehrtägig (ganztägig mind. 2 Tage, mit Uhrzeit mind. 20 Std.) oder
+  ganztägig mit Reise-Hinweis im Titel. Mehrere Reisen -> die eine mit Reise-Hinweis, sonst Nachfrage.
+
+Was NIE zählt (auch nicht als Kandidat in der Nachfrage), weil sonst Feiertage und Geburtstage als „Reise“
+gälten:
+- Feiertags- und Kontakt-Geburtstagskalender von Google (kalender_relevant, schon beim Laden ausgelassen);
+- Termine der Art Geburtstag, Abwesend, Fokuszeit, Arbeitsort (Google-Feld eventType);
+- ganztägige Termine, die nach Abwesenheit klingen (ABWESENHEIT: Urlaub, Ferien, Feiertag, Geburtstag …) –
+  egal aus welchem Kalender, denn Geburtstage und Ferien stehen oft in ganz normalen Kalendern.
 """
 
 import re
@@ -44,6 +52,14 @@ ESSENS_HINWEISE = ("mittag", "lunch", "dinner", "fruhstuck", "brunch", "bewirtun
 _KEIN_ESSEN = ("interessen", "messen")
 _VOR_STADT = {"in", "nach", "aus", "ab", "bis", "von"}  # „Messe in Essen“ -> Stadt, nicht Mahlzeit
 AEHNLICHKEIT_MIN = 0.85  # Tippfehler-Toleranz beim Namensvergleich (1,0 = exakt; „domhoff“/„domhof“ ≈ 0,92)
+# Wortteile ganztägiger Termine, die eine Abwesenheit/einen Anlass ohne Reise meinen (ohne Umlaute, siehe _norm)
+ABWESENHEIT = ("urlaub", "ferien", "feiertag", "geburtstag", "krank", "elternzeit", "abwesen", "bruckentag",
+               "jubilaum", "hochzeit", "namenstag")
+# Wortteile, an denen eine Reise erkennbar ist – entscheidet zwischen mehreren mehrtägigen Terminen
+REISE_HINWEISE = ("reise", "messe", "konferenz", "kongress", "tagung", "seminar", "schulung", "workshop",
+                  "hotel", "flug", "bahn", "einsatz", "montage", "trip", "travel", "summit", "expo")
+# Google-eventType, die nie ein Geschäftstermin sind
+_IGNORIERTE_ARTEN = {"birthday", "outOfOffice", "focusTime", "workingLocation"}
 _FUELLWOERTER = {"gmbh", "co", "kg", "ag", "ug", "mbh", "restaurant", "hotel", "gasthaus", "gaststaette",
                  "cafe", "bar", "und", "der", "die", "das", "im", "am", "zum", "zur", "the", "inh", "inhaber"}
 
@@ -58,6 +74,7 @@ class Termin:
     beschreibung: str = ""
     teilnehmer: list[str] = field(default_factory=list)
     link: str = ""
+    art: str = ""  # Google eventType („default“, „birthday“, „outOfOffice“ …)
 
     def zeitraum_de(self) -> str:
         if self.ganztags:
@@ -156,6 +173,37 @@ def klingt_nach_essen(termin: Termin) -> bool:
     return False
 
 
+def kalender_relevant(kalender_id: str) -> bool:
+    """Feiertagskalender (z. B. de.christian#holiday@…) und Googles Kontakt-Geburtstage enthalten nie Reisen
+    oder Bewirtungen – sie werden gar nicht erst geladen."""
+    return not re.search(r"#(holiday|contacts|weeknum)@", kalender_id or "")
+
+
+def _hat_wortteil(termin: Termin, teile: tuple[str, ...]) -> bool:
+    woerter = re.findall(r"[a-z0-9]+", _norm(f"{termin.titel} {termin.ort}"))
+    return any(teil in w for w in woerter for teil in teile)
+
+
+def relevant(termin: Termin) -> bool:
+    """Kann der Termin überhaupt zu einem Beleg gehören? Nein bei Geburtstagen, Feiertagen, Urlaub & Co."""
+    if getattr(termin, "art", "") in _IGNORIERTE_ARTEN:  # getattr: ältere zwischengespeicherte Termine
+        return False
+    return not (termin.ganztags and _hat_wortteil(termin, ABWESENHEIT))
+
+
+def klingt_nach_reise(termin: Termin) -> bool:
+    return _hat_wortteil(termin, REISE_HINWEISE)
+
+
+def ist_reise(termin: Termin) -> bool:
+    """Mindestens eine Nacht: ganztägig über 2+ Tage bzw. mit Uhrzeit 20+ Std. – oder ganztägig mit Reise-Hinweis.
+    Ein einzelner ganztägiger Termin ohne Hinweis (typisch: Feiertag, Geburtstag) ist keine Reise."""
+    dauer = termin.ende - termin.start
+    if termin.ganztags:
+        return dauer >= timedelta(days=2) or klingt_nach_reise(termin)
+    return dauer >= timedelta(hours=20)
+
+
 def _zahlzeit(analyse: BelegAnalyse) -> datetime | None:
     if not analyse.datum:
         return None
@@ -186,6 +234,7 @@ def abgleichen(analyse: BelegAnalyse, termine: list[Termin]) -> Abgleich:
         return Abgleich("nicht_noetig")
     if not analyse.datum:
         return Abgleich("kein_termin", "ohne Belegdatum kein Abgleich möglich.")
+    termine = [t for t in termine if relevant(t)]  # Geburtstage, Feiertage, Urlaub … zählen nie
     if analyse.kategorie == "uebernachtung":
         return _abgleich_uebernachtung(analyse, termine)
     return _abgleich_bewirtung(analyse, termine)
@@ -238,14 +287,16 @@ def _abgleich_uebernachtung(analyse: BelegAnalyse, termine: list[Termin]) -> Abg
         if erwaehnt:
             return Abgleich("passend", f"Termin um den {datum_de(analyse.datum)} nennt {erwaehnt}.", t,
                             [k for k in im_zeitraum if k is not t])
-    mehrtaegig = [t for t in im_zeitraum if (t.ende - t.start) >= timedelta(hours=20)]
-    if len(mehrtaegig) == 1:
-        t = mehrtaegig[0]
-        return Abgleich("passend", "Mehrtägiger Termin (Reise) über das Rechnungsdatum.", t,
+    reisen = [t for t in im_zeitraum if ist_reise(t)]
+    mit_hinweis = [t for t in reisen if klingt_nach_reise(t)]
+    eindeutig = reisen if len(reisen) == 1 else mit_hinweis if len(mit_hinweis) == 1 else []
+    if eindeutig:
+        t = eindeutig[0]
+        return Abgleich("passend", f"Reise „{t.titel}“ über das Rechnungsdatum.", t,
                         [k for k in im_zeitraum if k is not t])
-    if mehrtaegig:
-        return Abgleich("kein_termin", f"{len(mehrtaegig)} mehrtägige Termine kommen in Frage, keiner nennt "
-                        "Hotel oder Ort – bitte zuordnen.", None, mehrtaegig)
+    if reisen:
+        return Abgleich("kein_termin", f"{len(reisen)} mehrtägige Termine kommen in Frage, keiner nennt "
+                        "Hotel oder Ort – bitte zuordnen.", None, reisen)
     return Abgleich("kein_termin", f"keine Reise bzw. kein Termin rund um den {datum_de(analyse.datum)} "
                     "mit passendem Hotel oder Ort gefunden.", None, im_zeitraum)
 
@@ -267,7 +318,7 @@ def termin_aus_api(e: dict) -> Termin:
                   if not a.get("resource") and a.get("responseStatus") != "declined"]
     return Termin(titel=e.get("summary") or "(ohne Titel)", start=start, ende=ende, ganztags=ganztags,
                   ort=e.get("location") or "", beschreibung=e.get("description") or "",
-                  teilnehmer=teilnehmer, link=e.get("htmlLink") or "")
+                  teilnehmer=teilnehmer, link=e.get("htmlLink") or "", art=e.get("eventType") or "")
 
 
 def termine_laden(service, kalender_id: str, von: datetime, bis: datetime) -> list[Termin]:

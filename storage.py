@@ -765,7 +765,7 @@ def kalender_abgleichen(analyse):
     """Beleg mit dem Firmenkalender (bzw. allen gewählten Kalendern) abgleichen -> kalender.Abgleich."""
     from googleapiclient.errors import HttpError
 
-    from kalender import KALENDER_KATEGORIEN, Abgleich, abgleichen, zeitraum
+    from kalender import KALENDER_KATEGORIEN, Abgleich, abgleichen, kalender_relevant, zeitraum
 
     if analyse.kategorie not in KALENDER_KATEGORIEN:
         return Abgleich("nicht_noetig")
@@ -779,7 +779,7 @@ def kalender_abgleichen(analyse):
     neu_einrichten = ("Kalender in der Seitenleiste neu verbinden." if quelle == "app" else
                       "In der Seitenleiste neben „Kalender“ auf „Verbinden“ klicken.")
     termine, gesehen = [], set()
-    for kid in ids:
+    for kid in [k for k in ids if kalender_relevant(k)]:  # Feiertags-/Geburtstagskalender von Google auslassen
         try:
             gefunden = _kalender_termine(kid, bereich[0].isoformat(), bereich[1].isoformat(),
                                          token, client_id, client_secret)

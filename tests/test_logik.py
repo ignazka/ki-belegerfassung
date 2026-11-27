@@ -390,6 +390,34 @@ hotel = BelegAnalyse.model_validate({"kategorie": "uebernachtung", "datum": "202
 assert abgleichen(hotel, [_t("Messe", "2026-10-07T00:00", "2026-10-10T00:00", ganztags=True)]).status == "passend"
 assert abgleichen(hotel, [_t("Kundentermin München", "2026-10-08T10:00", "2026-10-08T12:00")]).status == "passend"
 assert abgleichen(hotel, [_t("Kundentermin Köln", "2026-10-08T10:00", "2026-10-08T12:00")]).status == "kein_termin"
+# Feiertage, Geburtstage, Urlaub zählen nie als Reise (auch nicht als Kandidat)
+from kalender import kalender_relevant  # noqa: E402
+
+feiertag = _t("Tag der Deutschen Einheit", "2026-10-08T00:00", "2026-10-09T00:00", ganztags=True)
+geburtstag = _t("Max", "2026-10-08T00:00", "2026-10-09T00:00", ganztags=True)
+geburtstag.art = "birthday"
+herbstferien = _t("Herbstferien Bayern", "2026-10-02T00:00", "2026-10-16T00:00", ganztags=True)
+urlaub = _t("Annika Urlaub", "2026-10-05T00:00", "2026-10-12T00:00", ganztags=True)
+ab = abgleichen(hotel, [feiertag, geburtstag, herbstferien, urlaub])
+# Feiertag ohne das Wort (aus einem normalen Kalender) ist eintägig -> keine Reise, nur noch als Hilfe gelistet;
+# Geburtstag, Ferien und Urlaub fallen ganz raus (Feiertagskalender lässt schon kalender_relevant weg)
+assert ab.status == "kein_termin" and [k.titel for k in ab.kandidaten] == ["Tag der Deutschen Einheit"], ab
+# einzelner ganztägiger Termin ohne Reise-Hinweis ist keine Reise, mit Hinweis schon
+assert abgleichen(hotel, [_t("Team-Tag", "2026-10-08T00:00", "2026-10-09T00:00", ganztags=True)]).status == "kein_termin"
+assert abgleichen(hotel, [_t("Dienstreise", "2026-10-08T00:00", "2026-10-09T00:00", ganztags=True)]).status == "passend"
+# mehrere mehrtägige Termine: der mit Reise-Hinweis gewinnt, sonst Nachfrage
+lang = _t("Planung Q4", "2026-10-06T00:00", "2026-10-10T00:00", ganztags=True)
+ab = abgleichen(hotel, [lang, _t("Messe Expo Real", "2026-10-07T00:00", "2026-10-10T00:00", ganztags=True), urlaub])
+assert ab.status == "passend" and ab.termin.titel == "Messe Expo Real", ab
+assert abgleichen(hotel, [lang, _t("Q4 Klausur", "2026-10-07T00:00", "2026-10-10T00:00",
+                                   ganztags=True)]).status == "kein_termin"
+# Bewirtung: Abendessen am Feiertag zählt weiter (nur ganztägige Abwesenheiten fallen raus)
+assert abgleichen(essen, [feiertag, _t("Abendessen Kunde", "2026-09-04T17:00", "2026-09-04T18:15")]).status == "passend"
+assert not kalender_relevant("de.christian#holiday@group.v.calendar.google.com")
+assert not kalender_relevant("addressbook#contacts@group.v.calendar.google.com")
+assert kalender_relevant("c_11f2@group.calendar.google.com") and kalender_relevant("person@firma.de")
+assert termin_aus_api({"start": {"date": "2026-10-07"}, "end": {"date": "2026-10-08"},
+                       "eventType": "birthday"}).art == "birthday"
 # Tankbeleg braucht keinen Termin
 assert abgleichen(aral, []).status == "nicht_noetig"
 # Google-API-Format

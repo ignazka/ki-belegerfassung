@@ -137,7 +137,10 @@ Zu jeder **Bewirtung** und **Übernachtung** sollte es einen Termin im Firmenkal
 | Belegart | passend, wenn … |
 |---|---|
 | Bewirtung | ein Termin am Belegdatum Restaurant oder Stadt nennt, **oder** zeitlich zur Zahlung passt und nach Essen klingt (Mittagessen, Dinner, Bewirtung …) |
-| Übernachtung | ein Termin rund um das Rechnungsdatum Hotel oder Stadt nennt, **oder** genau eine mehrtägige Reise darüber läuft |
+| Übernachtung | ein Termin rund um das Rechnungsdatum Hotel oder Stadt nennt, **oder** eine Reise darüber läuft (mehrtägig oder mit „Reise“, „Messe“, „Konferenz“ … im Titel). Bei mehreren gewinnt die mit Reise-Hinweis, sonst Nachfrage |
+
+**Nie berücksichtigt:** Googles Feiertags- und Geburtstagskalender, Geburtstage und Abwesenheiten (Google-Terminart)
+sowie ganztägige Termine wie Urlaub, Ferien, Feiertag, Geburtstag – auch wenn sie in einem normalen Kalender stehen.
 
 Gefunden: Die App zeigt den Termin und schlägt dessen Teilnehmer als bewirtete Personen vor.
 Nicht gefunden: Nachfrage, mit den Terminen im Zeitraum als Hilfe. Kalender noch nicht verbunden: nur ein Hinweis.
