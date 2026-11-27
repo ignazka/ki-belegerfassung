@@ -12,6 +12,8 @@ Kurzfassung:
 4. Der Code **prüft gegen**: Passen die Zahlen auf dem Beleg zueinander?
 5. Bei jedem Zweifel liest ein **größeres Modell** nach. Bleibt der Zweifel, geht der Beleg zur **Nachfrage**.
 
+Welche Mathematik dabei im Code steckt und wie schwierig sie ist: siehe [Anhang](#anhang-welche-mathematik-steckt-im-code).
+
 ---
 
 ## 1. Upload und Bildaufbereitung
@@ -453,6 +455,22 @@ trainiert, nur der Text der Kategorie-Beschreibungen ergänzt.
 Nachfrage, nicht die bloße Zahl der Analysen. Ein einzelner Fehler kann Zufall sein, dieselbe Verwechslung bei
 mehreren Belegen ist ein Muster. Daraus entsteht eine allgemeine Regel statt einer, die nur auf einen Beleg
 passt, und Lesefehler lassen sich besser von fehlendem Wissen trennen. Unter 20 Fällen weist die App darauf hin.
+
+## Anhang: Welche Mathematik steckt im Code?
+
+Kurz: **einfache Mathematik** – Grundrechenarten und Prozentrechnung. Anspruchsvoll ist nur, dass bei Geld jeder
+Cent stimmen muss und die Eingaben (von der KI gelesen) fehlerhaft sein können. Die „Intelligenz“ (Lesen,
+Einordnen) steckt im KI-Modell; der Code macht bewusst nur, was sich exakt und nachprüfbar rechnen lässt.
+
+| Bereich | Wo | Was gerechnet wird | Schwierigkeit |
+|---|---|---|---|
+| Beträge | `beleg_schema.py` (Abschnitt 3) | MwSt. aus Netto = Netto × Satz / 100; enthaltene MwSt. aus Brutto = Brutto × Satz / (100 + Satz); Netto/MwSt. gesamt = Summe der Steuerzeilen; Trinkgeld = EC-Betrag − Rechnung | Prozentrechnung |
+| Cent-Genauigkeit | `beleg_schema.py` (`summe`, `differenz`, `_cent`) | Rechnen mit `Decimal` statt Kommazahlen (im Computer ist 0,1 + 0,2 = 0,30000000000000004), am Ende kaufmännisch auf den Cent runden (`ROUND_HALF_UP`) | Standard-Handwerk, aber wichtig |
+| Lesefehler auflösen | `BelegAnalyse._summen_abgleichen` (Abschnitt 3) | Beide Deutungen durchrechnen: Passt die MwSt. nur, wenn der Betrag brutto war → umdeuten. Ergibt „Steuerzeilen + Trinkgeld“ genau den Gesamtbetrag → das war die Zahlsumme. Nur bei genau einer passenden Deutung | etwas Logik, keine schwere Mathematik |
+| Rechenprüfungen | `checks.pruefen` (Abschnitt 4) | Vergleiche mit Toleranz (2–3 Cent): Steuerzeilen = Gesamtbetrag? MwSt. = Netto × Satz? Netto + MwSt. = Brutto? Satz doppelt? EC-Betrag < Rechnung? Trinkgeld > 30 % der Rechnung? Datum in der Zukunft? | Vergleiche |
+| Texte vergleichen | `merkmale.py`, `checks._gleich` | Namen normalisieren (klein, Umlaute, „GmbH“ weg); Ähnlichkeit per `SequenceMatcher` (Python-Standardbibliothek): 2 × gemeinsame Zeichen / Gesamtlänge, ab 0,88 gleich | fertige Bibliothek |
+| Auswertung | `lesequalitaet.py`, `lernen.py`, Tab „Auswertung“ | Zählen und Prozente: Trefferquoten je Feld/Belegart, Fehlerquote vorher/nachher, Wirkung des Schiedsrichters. Keine Statistik im engeren Sinn (Konfidenzintervalle, Signifikanz) – bei so wenigen Belegen noch nicht sinnvoll | Zählen |
+| Technik am Rand | `storage.py`, `kategorien.py`, `kalender_verbindung.py` | SHA-256-Hashes (Datei wiedererkennen, Kategorie-Wissen geändert?), HMAC und Verschlüsselung (Fernet) für die Kalender-Verbindung | fertige Bibliotheken |
 
 ## Was nicht abgesichert ist
 
