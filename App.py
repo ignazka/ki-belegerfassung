@@ -12,7 +12,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import streamlit as st
 
 from auth import aktueller_benutzer, darf_kategorien_bearbeiten, login_erzwingen
-from beleg_schema import FEEDBACK_FELDER, KATEGORIEN, STANDARD_KATEGORIEN, BelegAnalyse, parse_datum, kategorien_registrieren, konten_registrieren, anzeige, normalisieren, werte_gleich, zeitpunkt_de
+from beleg_schema import FEEDBACK_FELDER, KATEGORIEN, STANDARD_KATEGORIEN, BelegAnalyse, parse_datum, kategorien_registrieren, konten_registrieren, anzeige, normalisieren, werte_gleich, zeitpunkt_de, jetzt_iso
 from datenschutz import ist_datenschutzseite, zeige_datenschutz
 from extraction import MAX_SEITEN, MODEL, MODEL_GROSS, AnalyseFehler, dateien_zu_bildern, text_anfrage_json
 from pipeline import beleg_lesen
@@ -1178,7 +1178,7 @@ def _aus_korrekturen_lernen(eintraege: list[dict]) -> None:
                     **lern_antwort_pruefen(antwort, KAT_STAND, len(faelle)),
                     "dateien": [e.get("dateiname") or "?" for e in quellen],
                     "shas": [e.get("datei_sha256") for e in quellen],
-                    "erstellt": datetime.now().isoformat(timespec="seconds"),
+                    "erstellt": jetzt_iso(),
                     "anzahl": len(faelle),
                     "vorsortiert": lf["vorsortiert"],
                     "ausgelassen_veraltet": 0 if ss.get("lern_mit_alten") else lf["veraltet"],

@@ -408,3 +408,12 @@ def test_logik():
 
 if __name__ == "__main__":
     print("Alle Logik-Tests bestanden.")
+
+
+def test_jetzt_in_deutscher_zeit():
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+    from beleg_schema import jetzt_iso
+    wert = datetime.fromisoformat(jetzt_iso())
+    berlin = datetime.now(ZoneInfo("Europe/Berlin")).replace(tzinfo=None)
+    assert wert.tzinfo is None and abs((berlin - wert).total_seconds()) < 5

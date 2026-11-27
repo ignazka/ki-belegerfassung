@@ -5,6 +5,7 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from datetime import date, datetime
 from decimal import ROUND_HALF_UP, Decimal
+from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -266,6 +267,12 @@ def datum_de(value) -> str:
         return ""
     s = str(value)
     return f"{s[8:10]}.{s[5:7]}.{s[:4]}" if _ISO_DATUM.match(s) else s
+
+
+def jetzt_iso() -> str:
+    """Jetzt in deutscher Zeit, ohne Zeitzonen-Angabe ('2026-11-27T14:05:00'). Die Cloud läuft auf UTC – bis
+    27.11.2026 stehen gespeicherte Zeitpunkte aus der Cloud deshalb in UTC (eine bzw. zwei Stunden früher)."""
+    return datetime.now(ZoneInfo("Europe/Berlin")).replace(tzinfo=None).isoformat(timespec="seconds")
 
 
 def zeitpunkt_de(value) -> str:

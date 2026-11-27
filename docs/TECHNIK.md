@@ -133,7 +133,11 @@ Menschen pflegen, und über **Messung**:
 - Jede Kategorie (Standard wie „Bewirtung“, „Tankbeleg“ oder selbst angelegt) hat Felder: Beschreibung
   (Freitext der Buchhaltung), Erkennungsmerkmale, Abgrenzung, Pflichtangaben, „Wann nachfragen?“, Status.
 - Jede Änderung im Tab „Kategorien“ ist eine **neue Version** in `kategorien/` (nur anhängen; Löschen =
-  Version mit Status `geloescht`). `kategorien.aktueller_stand` nimmt pro Schlüssel die jüngste Version.
+  Version mit Status `geloescht`). `kategorien.aktueller_stand` nimmt pro Schlüssel die **höchste Versionsnummer**
+  (nicht die späteste Uhrzeit – siehe Zeitpunkte).
+- **Zeitpunkte** (`zeitpunkt` jedes Eintrags, `beleg_schema.jetzt_iso`): deutsche Zeit ohne Zeitzonen-Angabe. Bis
+  27.11.2026 schrieb die Cloud UTC (Anzeige alter Einträge 1–2 h zu früh); die Reihenfolge stimmt trotzdem, weil
+  neue Einträge immer später liegen.
 - `kategorien.prompt_abschnitt` setzt **nur aktive** Kategorien mit all ihren Regeln in die Prompt-Vorlage
   (`prompts.system_prompt`) ein. Das passiert bei jedem Seitenaufruf → Änderungen wirken sofort für alle.
 - **SKR04-Konto** je Kategorie (`skr04_konto` 4-stellig, `skr04_bezeichnung` optional): aus der Vorlage in

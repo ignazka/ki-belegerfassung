@@ -13,10 +13,11 @@ Lokal (ohne [google_drive]): <Projekt>/data bzw. BELEG_DATENORDNER, mit Rechten 
 import hashlib
 import json
 import os
-from datetime import datetime
 from pathlib import Path
 
 import streamlit as st
+
+from beleg_schema import jetzt_iso
 
 # Rechte, die drive_token_holen.py beim Token anfragt (Drive schreiben, Kalender nur lesen)
 GOOGLE_SCOPES = ["https://www.googleapis.com/auth/drive", "https://www.googleapis.com/auth/calendar.readonly"]
@@ -283,7 +284,7 @@ def beleg_speichern(file_bytes: bytes, dateiname: str, sha: str) -> str:
 
 def _eintrag_speichern(art: str, eintrag: dict) -> None:
     """art = "feedback" | "nachfragen". Drive: eine JSON-Datei pro Eintrag, lokal: <art>.jsonl."""
-    eintrag = {"zeitpunkt": datetime.now().isoformat(timespec="seconds"), **eintrag}
+    eintrag = {"zeitpunkt": jetzt_iso(), **eintrag}  # deutsche Zeit (Cloud läuft auf UTC)
     zeile = json.dumps(eintrag, ensure_ascii=False)
 
     if _drive_config():
