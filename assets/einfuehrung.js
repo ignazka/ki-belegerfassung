@@ -42,8 +42,9 @@
       titel: "Prüfen und korrigieren",
       text: "Stimmt die Belegart? Dann „Ja“, sonst die richtige auswählen. Falsch gelesene Werte einfach " +
             "überschreiben und kurz begründen – aus diesen Begründungen lernt die KI. Dazu gehört auch das " +
-            "Konto (SKR04): Stimmt es nicht, die richtige Nummer eintragen. Auch schon geprüfte Belege " +
-            "lassen sich jederzeit über „Korrigieren“ ändern." },
+            "Konto (SKR04): Stimmt es nicht, die richtige Nummer eintragen. Steht auf Hotelrechnung oder " +
+            "Fahrkarte ein Name, gehört er ins Feld „Mitarbeiter / Gast“ – fehlt er, bitte ergänzen. Auch schon " +
+            "geprüfte Belege lassen sich jederzeit über „Korrigieren“ ändern." },
     { tab: 1, ziel: () => knopfMitText("Beleg entfernen"), titel: "Falsch hochgeladen?",
       text: "Wurde ein Beleg falsch hochgeladen – z. B. Vorder- und Rückseite als zwei einzelne Belege –, " +
             "verschiebt „Beleg entfernen“ ihn samt Prüfungen in den Papierkorb von Google Drive. Er zählt dann " +
@@ -68,12 +69,11 @@
             "fragt im Zweifel nach. Wichtig: Die Bedingung muss <b>auf dem Beleg zu sehen</b> sein – sonst bleibt " +
             "es beim Standardkonto und ihr korrigiert es bei der Prüfung." },
     { tab: 2, ziel: () => knopfMitText("Testen"), titel: "Erst testen, dann speichern",
-      text: "Der Probelauf liest Beispielbelege einmal mit der alten und einmal mit der neuen Beschreibung. So " +
-            "siehst du <i>vor</i> dem Speichern, ob deine Änderung die Erkennung verbessert – auch, welches " +
-            "Konto jeder Beleg bekommt. So prüft ihr neue Konto-Ausnahmen an echten Belegen. Die Beispielbelege " +
-            "liegen in Google Drive im Ordner „Anlage KI Assistent“ – je Ausnahme ein paar passende dazulegen. " +
-            "Im Fenster legt „Beispielbelege zum Prüfen in „Belege“ legen“ sie einmal zur Prüfung ab – danach " +
-            "zählt der Probelauf auch, ob Beträge und Datum stimmen." },
+      text: "Der Probelauf liest Belege einmal mit der alten und einmal mit der neuen Beschreibung. So siehst du " +
+            "<i>vor</i> dem Speichern, ob deine Änderung die Erkennung verbessert – auch, welches Konto jeder " +
+            "Beleg bekommt. Am besten mit <b>schon geprüften Belegen dieser Kategorie</b>: Da steht fest, was " +
+            "richtig ist, und du siehst, ob Fehler behoben werden und nichts kaputtgeht. Alternativ mit " +
+            "Beispielbelegen aus Google Drive (Ordner „Anlage KI Assistent“)." },
     { tab: 3,
       ziel: () => { const m = ersterSichtbarer('[data-testid="stMetric"]');
                     return m ? m.closest('[data-testid="stHorizontalBlock"]') : null; },
@@ -84,10 +84,13 @@
       text: "Sind sich die zwei ersten Lesungen nicht einig oder gibt es einen Grund zur Nachfrage, liest ein " +
             "größeres Modell genauer nach – das kostet Zeit und Geld. Diese Tabelle zeigt je Anlass, wie oft es " +
             "danach wirklich etwas geklärt oder anders gelesen hat. Bringt es bei einem Anlass nie etwas, " +
-            "schlägt die App vor, es dort wegzulassen." },
+            "schlägt die App vor, es dort wegzulassen. Zum Testen lässt es sich in der Seitenleiste für die " +
+            "eigene Sitzung abschalten – der Filter oben trennt dann die Ergebnisse mit und ohne." },
     { tab: 3, ziel: () => knopfMitText("Verbesserungsvorschläge"), titel: "Aus Korrekturen lernen",
       text: "Sind genug Korrekturen gesammelt, sucht die KI hier nach Mustern und schlägt Ergänzungen für die " +
-            "Kategorien vor. Übernommen wird nur, was ihr prüft und speichert." },
+            "Kategorien vor. Übernommen wird nur, was ihr prüft und speichert. Fälle, deren Kategorie ihr " +
+            "seitdem geändert habt, bleiben draußen. Darunter seht ihr, ob gespeicherte Vorschläge die Fehler " +
+            "wirklich verringert haben." },
     { tab: 0, ziel: () => ersterSichtbarer(".st-key-kalender_verbinden, .st-key-kalender_verbindung"),
       titel: "Kalender verbinden",
       text: "Zu jeder Bewirtung und Übernachtung sucht die App einen passenden Termin im Google-Kalender und " +
