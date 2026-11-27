@@ -1,492 +1,246 @@
 # Prüfablauf: Wie ein Beleg gelesen, gerechnet und geprüft wird
 
-Dieses Dokument beschreibt Schritt für Schritt, was mit einem hochgeladenen Beleg passiert, wo gerechnet
-wird und wann ein Beleg zur Nachfrage an einen Menschen geht. Grundregel aus dem Leitfaden der
-Buchhaltung: **Bei fehlenden oder unklaren Angaben nie raten.**
+Was mit einem hochgeladenen Beleg passiert – vom Hochladen bis zur Prüfung durch einen Menschen. Wie das im
+Code umgesetzt ist, steht in [docs/TECHNIK.md](docs/TECHNIK.md).
 
-Kurzfassung:
+Grundregel der Buchhaltung: **Bei fehlenden oder unklaren Angaben nie raten – nachfragen.**
+
+## Kurzfassung
 
 1. Die KI **liest nur ab**. Sie rechnet nichts.
-2. Der Beleg wird **zweimal gelesen**, beide Lesungen werden verglichen.
+2. Jeder Beleg wird **zweimal gelesen**, beide Lesungen werden verglichen.
 3. **Alle Rechnungen macht der Code**, auf den Cent genau.
 4. Der Code **prüft gegen**: Passen die Zahlen auf dem Beleg zueinander?
-5. Bei jedem Zweifel liest ein **größeres Modell** nach. Bleibt der Zweifel, geht der Beleg zur **Nachfrage**.
+5. Bei Zweifel liest ein **größeres Modell** („Schiedsrichter“) nach. Bleibt der Zweifel, geht der Beleg als
+   **Nachfrage** an einen Menschen.
+6. Jede Prüfung durch einen Menschen wird gespeichert – zum Messen und um die Regeln zu verbessern.
 
-Welche Mathematik dabei im Code steckt und wie schwierig sie ist: siehe [Anhang](#anhang-welche-mathematik-steckt-im-code).
+```text
+Hochladen ─► 2 Lesungen ─► rechnen + prüfen ─┬─► stimmig ──────────────────────┐
+                                             └─► Zweifel ─► Schiedsrichter ─────┤
+                                                                                ▼
+                         Kalenderabgleich ─► ablegen ─► Tab „Belege“: Mensch prüft
+```
 
 ---
 
-## 1. Upload und Bildaufbereitung
+## 1. Hochladen
 
-Datei: `extraction.py` (`dateien_zu_bildern`)
-
-- Erlaubt: JPG, PNG, PDF. Bei mehreren Dateien fragt die App, wie sie gelesen werden sollen – **ohne
-  Vorauswahl**; erst nach der Wahl lässt sich die Analyse starten:
-  - **Stapel**: Jede Datei ist ein eigener Beleg. Bis zu 30 Belege, 3 gleichzeitig, jeder mit
-    dem vollen Ablauf. Ergebnis: Übersicht (stimmig / Nachfrage / Fehler, farbig), CSV-Download,
-    die Analyse jedes Belegs im Detail ansehbar. **Jeder** analysierte Beleg wird abgelegt (Original +
-    Ergebnis in `analysen/`) und erscheint im Tab „Belege“.
-  - **Ein Beleg**: Alle Dateien gehören zusammen, z. B. Rechnung + EC-Beleg oder mehrere Fotos einer
-    langen Rechnung.
-- Während der Analyse zeigt der Knopf nur einen Spinner und die anderen Tabs sind gesperrt: Streamlit startet
-  das Skript bei jeder Eingabe neu, ein Klick in einem anderen Tab würde die Analyse abbrechen.
-- PDFs werden **vollständig** gelesen, bis 20 Seiten insgesamt. Mehr Seiten → Nachfrage.
-- Fotos werden automatisch gedreht (Handy-Ausrichtung) und auf höchstens 2000 Pixel verkleinert
-  (ab 6 Seiten 1600 Pixel). PDF-Seiten werden mit 150 dpi in Bilder umgewandelt.
+- JPG, PNG oder PDF. Bei mehreren Dateien fragt die App (ohne Vorauswahl):
+  - **Ein Beleg** – alle Dateien gehören zusammen (z. B. Rechnung + EC-Beleg).
+  - **Stapel** – jede Datei ist ein eigener Beleg (bis 30, drei gleichzeitig).
+- PDFs werden vollständig gelesen, bis 20 Seiten. Mehr Seiten → Nachfrage.
+- Fotos werden gedreht und verkleinert (höchstens 2000 Pixel).
+- **Jeder** analysierte Beleg wird abgelegt und erscheint im Tab „Belege“.
 
 ## 2. Ablesen durch die KI (doppelt)
 
-Dateien: `pipeline.py` (`beleg_lesen`), `prompts.py`
+Der Beleg wird **zweimal gleichzeitig** vom Modell `qwen3-vl-30b` gelesen: einmal das Original, einmal eine
+Variante mit stärkerem Kontrast. Durch das etwas andere Bild sind Lesefehler unabhängiger – eine „3“ statt
+„8“ passiert selten zweimal gleich.
 
-Der Beleg wird **zweimal gleichzeitig** gelesen, mit dem Modell `qwen3-vl-30b-a3b`:
+Die KI liest **genau wie gedruckt** ab:
 
-| Lesung | Bild |
-|---|---|
-| 1 | Original |
-| 2 | Graustufen mit verstärktem Kontrast und leicht geschärft (`kontrast_variante`) |
-
-Die zweite Lesung bekommt absichtlich ein etwas anderes Bild. So sind Lesefehler der beiden Durchläufe
-voneinander unabhängiger. Ein „3“ statt „8“ passiert dann selten zweimal gleich.
-
-**Was die KI abliest**, genau wie gedruckt, ohne zu rechnen:
-
-- Belegart (Bewirtung, Tankbeleg, Übernachtung, Sonstiges, Unlesbar) und ob sie dabei unsicher ist
+- Belegart und ob sie dabei unsicher ist
 - Belegnummer, Aussteller, Adresse, Datum, Uhrzeit
-- Mitarbeiter / Gast: Person, für die der Beleg ausgestellt ist (Gast, Reisender, Person im Empfängerfeld) –
-  nicht Bedienung, Kassierer oder Personen des Ausstellers; nie geraten
-- **Gesamtbetrag der Rechnung** (`brutto`): die Zeile „Summe“, „Total“, „Gesamtbetrag“, **vor** einem
-  Trinkgeld. Überträge und Zwischensummen sind ausdrücklich ausgeschlossen.
-- **EC-/Kartenbetrag** (`ec_betrag`): der tatsächlich gezahlte Betrag
-- **MwSt.-Aufstellung** (`steuerzeilen`): eine Zeile pro Steuersatz mit Satz, Netto, MwSt. und Brutto,
-  so wie gedruckt
-- **Trinkgeld**: nur, wenn es auf dem Beleg steht. Nie aus einer Differenz berechnet.
-- Ausland ja/nein und ob der EC-Beleg zur Rechnung passt (Datum, Uhrzeit, Adresse, Name)
-- **Konto** (SKR04), nur wenn die Kategorie Konto-Ausnahmen hat: Standardkonto oder die zutreffende Ausnahme,
-  bei Hinweisen ohne Gewissheit `konto_unsicher` + Begründung. Andere Konten als die der Kategorie ersetzt der
-  Code durch das Standardkonto; ohne Ausnahmen setzt der Code immer das Standardkonto.
+- Mitarbeiter / Gast (für wen der Beleg ist – nie geraten)
+- Gesamtbetrag der Rechnung (vor Trinkgeld), EC-/Kartenbetrag, Trinkgeld (nur wenn aufgedruckt)
+- MwSt.-Aufstellung: eine Zeile je Steuersatz mit Netto, MwSt. und Brutto
+- Auslandsbeleg ja/nein, passt der EC-Beleg zur Rechnung
+- Konto (SKR04) – nur wenn die Kategorie Konto-Ausnahmen hat; sonst setzt der Code das Standardkonto
 
 Die KI bildet **keine Summen und keine Differenzen**. Das war die Ursache der ersten Fehler: Beim
-Domhof-Beleg hatte sie die MwSt. falsch addiert (11,40 statt 11,35 €) und daraus einen falschen
-Gesamtbetrag gebaut.
+Domhof-Beleg hatte sie die MwSt. falsch addiert (11,40 statt 11,35 €).
 
 ## 3. Rechnen im Code (cent-genau)
 
-Datei: `beleg_schema.py` (`summe`, `differenz`, `mwst_aus_netto`, `mwst_aus_brutto`, `BelegAnalyse._ableiten`)
-
-Alle Beträge werden als **Dezimalzahlen** gerechnet, nicht als Computer-Fließkommazahlen. Gerundet wird
-kaufmännisch auf den Cent. So entstehen keine Rundungsfehler wie 0,1 + 0,2 = 0,30000000000000004.
+Gerechnet wird mit exakten Dezimalzahlen und kaufmännisch auf den Cent gerundet.
 
 | Wert | Formel |
 |---|---|
 | MwSt. gesamt | Summe der MwSt. aller Steuerzeilen |
-| Netto gesamt | Summe der Netto-Beträge aller Steuerzeilen (fehlt Netto: Brutto − MwSt. der Zeile) |
+| Netto gesamt | Summe der Netto-Beträge (fehlt Netto: Brutto − MwSt. der Zeile) |
 | Trinkgeld | EC-Betrag − Rechnungsbetrag (nur wenn größer als 0) |
-| Gesamtbetrag inkl. Trinkgeld | EC-Betrag, sonst Rechnungsbetrag + aufgedrucktes Trinkgeld |
 | MwSt. aus Netto | Netto × Satz / 100, z. B. 23,45 × 19 % = 4,46 |
 | MwSt. aus Brutto | Brutto × Satz / (100 + Satz), z. B. 20,00 × 19/119 = 3,19 |
 
-### Typische Ablesefehler, die der Code selbst auflöst
+**Zwei typische Lesefehler löst der Code selbst** – aber nur, wenn danach alles auf den Cent zum Gesamtbetrag
+passt. Sonst bleibt es, wie gelesen, und die Rechenprüfung schlägt an. Jede Umdeutung wird angezeigt
+(„Vom Code umgedeutet“).
 
-Datei: `beleg_schema.py` (`_summen_abgleichen`)
-
-Zwei Fehler kamen bei den Beispielbelegen mehrfach vor. Der Code löst sie auf, **aber nur, wenn das
-Ergebnis danach auf den Cent zum gedruckten Gesamtbetrag passt**. Sonst bleibt alles, wie es abgelesen
-wurde, und die Rechenprüfung schlägt an (→ Nachfrage). Jede Umdeutung wird in der App angezeigt
-(„Vom Code umgedeutet“) und gespeichert.
-
-**a) Brutto-Spalte als Netto gelesen.** Kassenbons drucken pro Steuersatz mal Netto, mal Brutto.
-
-> Abgelesen: 19 %, „Netto“ 20,00 €, MwSt. 3,19 €.
-> Als Netto passt das nicht: 20,00 × 19 % = 3,80 €.
-> Als Brutto passt es: 20,00 × 19/119 = 3,19 €. → Netto ist 16,81 €.
-> Übernommen, weil alle Zeilen danach zusammen genau den Gesamtbetrag 26,50 € ergeben.
-
-**b) Gesamtbetrag inklusive Trinkgeld gelesen.**
-
-> Beleg: „Summe 66,80“, „Trinkgeld 3,20“, „Kreditkarte 70,00“. Abgelesen als Gesamtbetrag: 70,00 €.
-> Steuerzeilen: 52,70 + 14,10 = 66,80 €. Plus aufgedrucktes Trinkgeld 3,20 € = 70,00 €.
-> → Rechnungsbetrag ist 66,80 €, Trinkgeld 3,20 €.
-> Ohne aufgedrucktes Trinkgeld wird **nicht** geraten. Dann geht der Beleg zur Nachfrage.
+- **Brutto als Netto gelesen:** Gelesen „Netto 20,00 €, MwSt. 3,19 €“. Als Netto passt das nicht
+  (20,00 × 19 % = 3,80), als Brutto schon (20,00 × 19/119 = 3,19) → Netto ist 16,81 €.
+- **Gesamtbetrag mit Trinkgeld gelesen:** Gelesen 70,00 €; Steuerzeilen ergeben 66,80 €, aufgedrucktes
+  Trinkgeld 3,20 € → Rechnung 66,80 €, Trinkgeld 3,20 €. Ohne aufgedrucktes Trinkgeld wird nicht geraten.
 
 ## 4. Rechenprüfungen (Gegenprobe)
 
-Datei: `checks.py` (`pruefen`)
+Ein falsch gelesener Betrag passt fast nie zu den anderen Zahlen auf dem Beleg:
 
-Ein falsch gelesener Betrag passt fast nie zu den anderen Zahlen auf dem Beleg. Genau das wird geprüft:
-
-| Prüfung | Erlaubte Abweichung | Fängt ab |
+| Prüfung | Toleranz | Fängt ab |
 |---|---|---|
-| Summe der Steuerzeilen = Gesamtbetrag | 2 Cent | falsch gelesener Gesamtbetrag, Übertrag/Zwischensumme statt Summe, vergessene Zeile |
-| MwSt. jeder Zeile = Netto × Satz | 3 Cent | falsch gelesene Ziffer in Netto oder MwSt. |
+| Summe der Steuerzeilen = Gesamtbetrag | 2 Cent | falscher Gesamtbetrag, Zwischensumme, vergessene Zeile |
+| MwSt. jeder Zeile = Netto × Satz | 3 Cent | falsch gelesene Ziffer |
 | Netto + MwSt. = Brutto je Zeile | 2 Cent | falsch gelesene Ziffer |
-| Jeder Steuersatz nur einmal | – | doppelt oder erfunden gelesene Zeile |
+| Jeder Steuersatz nur einmal | – | doppelt gelesene Zeile |
 | EC-Betrag ≥ Rechnung | 2 Cent | falscher EC-Beleg, Teilzahlung |
-| Trinkgeld ≤ 30 % der Rechnung | – | EC-Beleg gehört zu einer anderen Rechnung |
-| Datum nicht in der Zukunft (deutsche Zeit) | – | falsch gelesenes Datum |
+| Trinkgeld ≤ 30 % der Rechnung | – | EC-Beleg gehört zu anderer Rechnung |
+| Datum nicht in der Zukunft | – | falsch gelesenes Datum |
 
-**Warum ein paar Cent Toleranz?** Viele Kassen runden die MwSt. pro Position und nicht auf die Summe.
-Dadurch weicht die Summe der Steuern um 1 bis 2 Cent vom „idealen“ Wert ab, obwohl der Beleg korrekt ist.
-Alles über dieser Toleranz gilt als Ablesefehler. Die Toleranzen stehen an einer Stelle:
-`TOLERANZ_SUMME` und `TOLERANZ_ZEILE` in `beleg_schema.py`.
+Die Toleranz gibt es, weil viele Kassen die MwSt. je Position runden – dann weicht die Summe um 1–2 Cent ab,
+obwohl der Beleg stimmt.
 
 ## 5. Vergleich der beiden Lesungen
 
-Datei: `checks.py` (`abweichungen`)
-
-Verglichen werden: Belegart, Konto, Belegnummer, Aussteller, Mitarbeiter, Datum, Uhrzeit, Postleitzahl, Gesamtbetrag,
-EC-Betrag und die MwSt.-Aufstellung. Groß-/Kleinschreibung, Leer- und Satzzeichen zählen nicht. Beim Namen gilt
-„Aral“ = „ARAL Tankstelle Speyer“ (der eine Name ist im anderen enthalten). Bei der Uhrzeit zählen nur
-Stunde und Minute („18.30“ = „18:30:12“); liest nur eine Lesung eine Uhrzeit, ist das eine Abweichung. Von
-der Adresse zählt nur die fünfstellige Postleitzahl (die Stadt braucht der Kalenderabgleich) – der Ortsname
-nicht, denn „Frankfurt a. M.“ / „Frankfurt am Main“ ist kein Lesefehler. Ohne PLZ (Ausland) kein Vergleich.
+Verglichen werden Belegart, Konto, Belegnummer, Aussteller, Mitarbeiter, Datum, Uhrzeit, Postleitzahl,
+Gesamtbetrag, EC-Betrag und die MwSt.-Aufstellung. Kleinigkeiten zählen nicht: Groß-/Kleinschreibung,
+„Aral“ = „ARAL Tankstelle Speyer“, „18.30“ = „18:30:12“, „Frankfurt a. M.“ = „Frankfurt am Main“ (von der
+Adresse zählt nur die Postleitzahl).
 
 ## 6. Schiedsrichter: größeres Modell bei Zweifel
 
-Datei: `pipeline.py`
+Das größere Modell (`qwen3-vl-235b`) liest in höherer Auflösung nach, wenn
 
-Der Schiedsrichter liest, wenn
-
-- die beiden Lesungen in mindestens einem Feld abweichen, **oder**
+- die beiden Lesungen abweichen, **oder**
 - eine Prüfung fehlschlägt bzw. ein anderer Nachfragegrund vorliegt.
 
-**Ausnahme – rein fachliche Gründe** (`checks.nur_fachliche_gruende`): Stimmen beide Lesungen überein und
-lassen sich **alle** Nachfragegründe durch genaueres Lesen nicht ändern, liest der Schiedsrichter nicht –
-das spart Zeit und Kosten. Die Nachfrage an den Menschen bleibt. Rein fachlich sind: Auslandsbeleg, nur
-EC-Beleg (Rechnung fehlt), ungewöhnlicher Steuersatz (beide Lesungen sehen denselben Satz), Konto unsicher.
-Alles andere –
-Rechenprüfung, unsichere oder unbekannte Belegart, fehlende Pflichtangaben, EC passt nicht, unlesbar, kein
-Steuersatz/Datum/Betrag – geht im Zweifel weiter an den Schiedsrichter.
+**Sein Ergebnis gilt.** Ein abweichendes Feld gilt als geklärt, wenn er einer der beiden ersten Lesungen
+zustimmt; sonst „Unsicher gelesen“ → Nachfrage.
 
-Er liest in **höherer Auflösung** (2800 Pixel, PDFs mit 220 dpi), damit kleine Kassenbon-Schrift besser
-lesbar ist. **Sein Ergebnis gilt.** Ein abweichendes Feld gilt als geklärt, wenn der Schiedsrichter einer
-der beiden ersten Lesungen zustimmt. Danach laufen alle Prüfungen erneut. Konnten beide ersten Lesungen
-nichts liefern und nur der Schiedsrichter liest, fehlt die Gegenprobe – dann geht der Beleg mit dem Grund
-„Nur das große Modell konnte den Beleg lesen – ohne Gegenprobe“ zur Nachfrage.
+**Kein Schiedsrichter** bei rein fachlichen Gründen, die genaueres Lesen nicht ändert: Auslandsbeleg, nur
+EC-Beleg, ungewöhnlicher Steuersatz, Konto unsicher. Die Nachfrage bleibt trotzdem.
 
-| Umgebung | Schiedsrichter |
+**Zum Testen abschalten:** Schalter „Schiedsrichter (großes Modell)“ in der Seitenleiste (nur für die eigene
+Sitzung). Dann geht jeder Zweifel direkt zur Nachfrage. Die Auswertung kann nach „an / abgeschaltet“ filtern.
+
+## 7. Bekannte Aussteller
+
+Aussteller, die zu einer Belegart gehören (z. B. „DB Fernverkehr“ → Reisekosten). Zwei Quellen:
+
+- **von Hand** im Tab „Kategorien“ (Tabelle „Bekannte Aussteller“) oder per Häkchen „Aussteller … merken“
+  beim Prüfen;
+- **automatisch** aus geprüften Belegen: mindestens 2-mal geprüft, immer dieselbe Belegart.
+
+Der Code gleicht den gelesenen Namen tolerant ab (Groß/klein, „GmbH“, kleine Lesefehler). Die KI sieht die
+Liste nicht – sie steht nicht im Prompt.
+
+| KI wählt … | Folge |
 |---|---|
-| Jetzt (Cloud, OpenRouter) | `qwen3-vl-235b-a22b` |
-| Später lokal (RTX 3090, 24 GB) | dasselbe 30B-Modell in höherer Auflösung (`SCHIEDSRICHTER_MODELL` setzen); das 235B-Modell passt nicht in 24 GB, und auf einer Karte ist immer nur ein Modell geladen |
+| dieselbe Belegart | Zweifel der KI an der Belegart entfallen |
+| eine andere Belegart | Nachfrage |
+| „Sonstiger Beleg“, Aussteller **von Hand** eingetragen | Code stellt die Belegart selbst richtig, keine Nachfrage („Belegart vom Programm richtiggestellt“) |
 
-### Schiedsrichter abschalten (zum Testen)
+## 8. Abgleich mit dem Firmenkalender
 
-Schalter **„Schiedsrichter (großes Modell)“** in der Seitenleiste – gilt nur für die eigene Sitzung (nach dem
-Neuladen wieder an). Aus: Es gilt Lesung 1; abweichende Felder werden „Unsicher gelesen“, alle übrigen Gründe
-bleiben – jeder Zweifel geht direkt zur Nachfrage. Gilt auch für Probelauf und „Beispielbelege ablegen“. Analyse
-und Prüfung vermerken `schiedsrichter_aus: true`; die Auswertung filtert danach („Schiedsrichter: an /
-abgeschaltet“) und zeigt so, was er bringt.
-
-## 7. Wann ein Beleg zur Nachfrage geht
-
-Datei: `checks.py` (`nachfragen_gruende`)
-
-Jeder Beleg wird sofort abgelegt (`analysen/`, Original in `belege/`); die Nachfragegründe stehen mit
-dabei, im Tab „Belege“ erscheint er unter „Nachfragen offen“. (Ältere Nachfragen liegen in `nachfragen/`.)
-Gründe:
-
-- unlesbar
-- Belegart unsicher (mit Begründung der KI) oder keiner Kategorie zuzuordnen – entfällt, wenn ein
-  **bekannter Aussteller** die Belegart bestätigt
-- **Bekannter Aussteller, andere Belegart** (siehe unten)
-- nur EC-Beleg, keine Rechnung
-- **Auslandsbeleg** (abweichende Handhabe laut Buchhaltung)
-- **Konto unsicher** (Beleg deutet auf eine Konto-Ausnahme der Kategorie hin, aber nicht sicher)
-- EC-Beleg passt nicht zur Rechnung (Datum, Uhrzeit, Adresse, Name)
-- kein Steuersatz ausgewiesen, oder ein anderer als 7 % / 19 %
-- Gesamtbetrag oder Datum fehlt
-- eine Rechenprüfung fehlgeschlagen (nach den Umdeutungen aus Abschnitt 3)
-- die beiden Lesungen weichen ab und auch der Schiedsrichter klärt es nicht
-- mehr als 20 Seiten
-- **kein passender Kalendertermin** zu einer Bewirtung oder Übernachtung (siehe Abschnitt 7a), oder der
-  Kalender ist nicht erreichbar
-
-**Bekannte Aussteller** (`merkmale.py`): Aussteller, die zu einer Belegart gehören – von Hand im Tab
-„Kategorien“ eingetragen (hat Vorrang) oder automatisch aus geprüften Belegen (mindestens 2-mal geprüft, immer
-dieselbe Belegart; Bewirtungs-Unterarten zählen als eine). Der Code gleicht den gelesenen Aussteller tolerant ab
-(Groß/klein, „GmbH“ & Co., kleine Lesefehler, Teiltreffer ab 4 Zeichen). Passt die Belegart der KI, entfällt
-„Belegart unsicher“ – oft ohne Schiedsrichter. Passt sie nicht: Nachfrage, das große Modell darf nachsehen.
-Ausnahme: Wählt die KI „Sonstiger Beleg“ und ist der Aussteller **von Hand** eingetragen, stellt der Code die
-Belegart selbst richtig (Konto neu nach der Kategorie) – ohne Schiedsrichter und ohne Nachfrage. Im Prüfformular
-steht dann „Belegart vom Programm richtiggestellt“; Analyse und Prüfung vermerken `belegart_richtiggestellt`,
-die gespeicherten Lesungen zeigen weiter die Antwort der KI (für die Lesequalität).
-Eintragen von Hand geht auch direkt beim Prüfen: Häkchen „Aussteller als bekannt für … merken“ im Prüfformular
-→ neue Version der Kategorie mit dem Aussteller (wie er im Feld steht, Anmerkung „beim Prüfen gemerkt“).
-Nicht im Prompt, die Prompt-Version ändert sich dadurch nicht.
-
-## 7a. Abgleich mit dem Firmenkalender
-
-Datei: `kalender.py` (Regeln), `storage.py` (`kalender_abgleichen`)
-
-Zu jeder **Bewirtung** und **Übernachtung** muss es einen passenden Termin im Google-Kalender der Firma geben.
+Zu jeder **Bewirtung** und **Übernachtung** sollte es einen Termin im Firmenkalender geben.
 
 | Belegart | passend, wenn … |
 |---|---|
-| Bewirtung | ein Termin am Belegdatum Restaurantname bzw. Stadt in Titel, Ort oder Beschreibung nennt, **oder** zeitlich zur Zahlung passt (beginnt höchstens 5 Std. vorher, endet frühestens 1 Std. vorher) **und** nach Essen klingt (z. B. Mittagessen, Abendessen, Lunch, Dinner, Frühstück, Bewirtung; die Stadt Essen – „Messe in Essen“, „45127 Essen“ – zählt nicht). Passt ein Termin nur zur Uhrzeit (z. B. „Zahnarzt“), gibt es eine Nachfrage. Namen dürfen leicht abweichen: Tippfehler („Domhoff“) und Abkürzungen („Rest. Domh.“) treffen auch |
-| Übernachtung | ein Termin rund um das Rechnungsdatum (bis 1 Tag davor) Hotel oder Stadt nennt, **oder** genau eine mehrtägige Reise über das Datum läuft |
+| Bewirtung | ein Termin am Belegdatum Restaurant oder Stadt nennt, **oder** zeitlich zur Zahlung passt und nach Essen klingt (Mittagessen, Dinner, Bewirtung …) |
+| Übernachtung | ein Termin rund um das Rechnungsdatum Hotel oder Stadt nennt, **oder** genau eine mehrtägige Reise darüber läuft |
 
-- Gefunden: Die App zeigt den Termin und schlägt dessen **Teilnehmer** als „bewirtete Personen“ vor.
-- Nicht gefunden: **Nachfrage**, mit den Terminen im Zeitraum als Hilfe („vielleicht ist einer davon gemeint“).
-- Noch nicht eingerichtet: nur ein Hinweis, keine Nachfrage.
+Gefunden: Die App zeigt den Termin und schlägt dessen Teilnehmer als bewirtete Personen vor.
+Nicht gefunden: Nachfrage, mit den Terminen im Zeitraum als Hilfe. Kalender noch nicht verbunden: nur ein Hinweis.
+Verbinden: Seitenleiste → „Kalender: nicht verbunden“ → **„Verbinden“**, Kalender auswählen.
 
-Einrichtung: In der Seitenleiste neben „Kalender: nicht verbunden“ auf **„Verbinden“** – mit dem Konto anmelden, das die Termine sieht
-(z. B. Annika), „Kalender ansehen“ erlauben und auswählen, welche Kalender gelten (mehrere möglich; die App sucht
-in allen). Unter „Kalender: verbunden“ lässt sich die Auswahl ändern, neu verbinden oder trennen.
-Alter Weg, gilt nur ohne Verbindung in der App: `kalender_id` unter `[kalender]` in den Secrets, Zugriff über den
-Drive-Zugang oder `python drive_token_holen.py --kalender`.
+## 9. Wann ein Beleg zur Nachfrage geht
 
-## 8. Belege prüfen und korrigieren (Tab „Belege“)
+- unlesbar, oder mehr als 20 Seiten
+- Belegart unsicher oder keiner Kategorie zuzuordnen (außer ein bekannter Aussteller bestätigt sie)
+- bekannter Aussteller, aber andere Belegart
+- nur EC-Beleg, keine Rechnung
+- Auslandsbeleg
+- Konto unsicher
+- EC-Beleg passt nicht zur Rechnung
+- kein Steuersatz, oder ein anderer als 7 % / 19 %
+- Gesamtbetrag oder Datum fehlt, Pflichtangaben der Kategorie fehlen
+- eine Rechenprüfung schlägt fehl
+- die Lesungen weichen ab und auch der Schiedsrichter klärt es nicht
+- kein passender Kalendertermin (Bewirtung, Übernachtung)
 
-Datei: `App.py` (`zeige_belege`, `_alle_belege`, `_beleg_formular`), Ablage `storage.py`
-(`analyse_speichern`, `feedback_speichern`)
+## 10. Prüfen und korrigieren (Tab „Belege“)
 
-Alle analysierten Belege an einer Stelle – auch solche, die schon als richtig abgehakt sind. Gerade jetzt, wo
-geprüft wird, ob die KI richtig einordnet, soll man alles durchsehen und jederzeit korrigieren können.
+Alle Belege an einer Stelle, mit Filtern: *Nachfragen offen · Ungeprüft · Korrigiert · Mit Kommentar · Alle*
+und einer Suche (Text, Belegart, Zeitraum).
 
-**Woher die Belege kommen** (`_alle_belege`, pro Datei-Hash zusammengeführt): jüngste Analyse (`analysen/`,
-neu) bzw. Nachfrage (`nachfragen/`, ältere Einträge), jüngste Prüfung (`feedback/`) und – nur noch lesend –
-Entscheidungen der ersten Version (`entscheidungen/`).
+- **Noch nicht geprüft:** links das Original, rechts das Formular. Zuerst „Stimmt die Belegart …? Ja/Nein“
+  (ohne Vorauswahl), dann Falsches in den Feldern überschreiben. Begründung ist Pflicht bei Nachfragen und bei
+  Änderungen. Danach geht es zum nächsten Beleg.
+- **Schon geprüft:** Tabelle „KI hat gelesen / Richtig ist“; „Korrigieren“ öffnet das Formular erneut.
+- **Falsch hochgeladen?** „Beleg entfernen“ verschiebt Beleg und Prüfungen in den Drive-Papierkorb
+  (30 Tage wiederherstellbar).
 
-**Status je Beleg**: *Nachfrage offen* (KI hat nachgefragt, noch niemand geprüft) · *Noch nicht geprüft* ·
-*Geprüft – alles richtig* · *Geprüft – korrigiert* · *Erledigt (ohne Bewertung)* (alte Entscheidung ohne
-Feldprüfung).
+Jede Prüfung wird als **neuer Eintrag** gespeichert (nie überschrieben): wer, wann, Belegart und jedes Feld
+„KI / richtig“, Begründung. Es zählt immer die jüngste Prüfung.
 
-**Suche** (ganz oben): Suchfeld über Dateiname, Belegnummer, Aussteller, Adresse, Mitarbeiter, Belegart, Datum und Kommentar
-(mehrere Wörter: alle müssen vorkommen), Auswahl der Belegart und Zeitraum nach Belegdatum. Bei geprüften
-Belegen zählen die korrigierten Werte. „Filter zurücksetzen“ leert alles.
+## 11. Kategorien – und wie die KI daraus „lernt“
 
-**Filter** (oben, gut sichtbar): Nachfragen offen · Ungeprüft · Korrigiert · Mit Kommentar ·
-Alle. „Ungeprüft“ sind nur Belege ohne Nachfrage (KI war sicher, noch niemand hat geprüft) – beide Filter
-überschneiden sich nicht. Liegt unter „Nachfragen offen“ oder „Ungeprüft“ etwas, steht die Zahl als farbige Plakette daneben
-(orange bzw. grau-blau), sonst in Klammern. Beim Öffnen steht er dort, wo es etwas zu tun gibt. Der Tab zeigt die Zahl offener Nachfragen als Plakette („3 offen“).
+**„Lernen“ heißt: Der Prompt wird angepasst, das Modell wird nicht nachtrainiert.** Die aktiven Kategorien
+mit ihren Regeln stehen bei jeder Analyse in den Anweisungen an die KI.
 
-**Ansicht**: Auswahlliste mit Vor/Zurück-Pfeilen. Oben die Gründe der KI (falls nachgefragt), links das
-Original groß und so hoch wie das Formular daneben (mehrere Seiten: unten ‹ Seite x von n › und
-Mini-Vorschauen zum Springen), rechts:
+- **Anlegen und bearbeiten** im Tab „Kategorien“: Beschreibung als Freitext, Erkennungsmerkmale, Abgrenzung,
+  Pflichtangaben, wann nachfragen, SKR04-Konto, bekannte Aussteller.
+- **KI-Assistent:** macht aus dem Freitext klare Regeln und stellt Rückfragen statt zu raten – nur als
+  Vorschlag.
+- **Status:** Nur **aktive** Kategorien kann die KI wählen. Ein **Entwurf** ist gespeichert, aber für die KI
+  unsichtbar.
+- Jede Änderung ist eine **neue Version**; eine lesbare Kopie liegt als Google-Doc in
+  `Anlage KI Assistent/<Kategorie>/`.
 
-- noch nicht geprüft → gleich das Formular: „Stimmt die Belegart …? Ja/Nein“ (ohne Vorauswahl), Felder mit
-  der KI-Lesung, Begründung. Bei Nachfragen ist die Begründung Pflicht (Knopf „Korrigieren“), sonst nur, wenn
-  man etwas ändert (Knopf „Prüfung speichern“). Danach springt die Ansicht zum nächsten Beleg.
-- geprüft → Belegart richtig/korrigiert und Tabelle „KI hat gelesen / Richtig ist“ (grün = stimmte,
-  rot = korrigiert), wer wann geprüft hat, Kommentar. „Korrigieren“ öffnet das Formular mit den bisher
-  richtigen Werten; „Abbrechen“ schließt es wieder. Begründung Pflicht.
+### Probelauf: „Hilft meine Änderung?“
 
-Nach dem Speichern steht oben die Gegenüberstellung der gerade gespeicherten Prüfung.
-
-**Falsch hochgeladen?** Oben rechts neben der Belegauswahl verschiebt **„Beleg entfernen“** (rot) den Beleg mit Analyse, allen
-Prüfungen und der Originaldatei in den Papierkorb von Google Drive (30 Tage wiederherstellbar). Er verschwindet
-aus der Liste und zählt nicht mehr in der Auswertung; danach richtig neu hochladen. Originaldateien, die ein
-anderer Beleg ebenfalls nutzt, bleiben liegen.
-
-**Gespeichert** wird jede Prüfung als **neuer** Feedback-Eintrag (nur anhängen, Stufe 1 des Leitfadens:
-Annika prüft und dokumentiert jede Korrektur): Person, Zeitpunkt, Belegart und jedes Feld KI/richtig,
-Begründung, Nachfragegründe der KI, Quelle (`nachfrage` / `pruefung`). Bei einer Korrektur zusätzlich
-`korrektur_von` und `kommentar_vorher`. Es zählt immer die jüngste Prüfung; verglichen wird immer mit der
-KI-Lesung. So fließt jede Prüfung in die Auswertung und in „Aus Korrekturen lernen“ ein.
-
-## 9. Kategorien (Tab „Kategorien“) und wie die KI daraus lernt
-
-Dateien: `kategorien.py`, `prompts.py` (`system_prompt`, `prompt_version`), `App.py` (`zeige_kategorien`)
-
-- **Anlegen, bearbeiten, löschen** in der App. Standard-Kategorien (Bewirtung, Tankbeleg, Übernachtung, …)
-  sind im Code verankert: Ihre Beschreibung lässt sich ergänzen, löschen kann man sie nicht.
-- **Beschreibung als Freitext**, so wie man es einem neuen Kollegen erklären würde.
-- **KI-Assistent** (Schaltfläche, großes Modell): Er übersetzt den Freitext in klare Regeln
-  (Erkennungsmerkmale, Abgrenzung, Pflichtangaben, wann nachfragen). Was unklar ist oder sich mit einer
-  anderen Kategorie überschneidet, stellt er als **Rückfrage an die Buchhaltung**, statt zu raten. Sein
-  Ergebnis ist nur ein Vorschlag. Erst „Speichern“ übernimmt ihn.
-- **Status**: „Entwurf“ wird gespeichert, aber noch nicht verwendet. „Aktiv“ fließt ab sofort in jede
-  Analyse ein. Entwürfe erscheinen in der Belegart-Auswahl im Tab „Belege“ als „(Entwurf)“,
-  damit eine neu angelegte Kategorie sofort auswählbar ist – der KI-Prompt und die Prüfung ihrer Antworten
-  nutzen aber nur aktive Kategorien. Damit das nicht übersehen wird, steht oben im Tab „Kategorien“ ein gelber
-  Hinweis mit allen Entwürfen („noch Entwurf und damit nicht aktiv“) und bei einer ausgewählten
-  Entwurfs-Kategorie direkt unter dem Namen „Entwurf – nicht aktiv“ mit der Anleitung zum Aktivieren.
-- **Jede Änderung ist eine neue Version** (`kategorien/`) mit Person und Zeitpunkt. Löschen ist ebenfalls
-  nur eine neue Version mit Status „gelöscht“, der Verlauf bleibt erhalten.
-- **Lesbare Kopie im Drive**: Pro Kategorie ein Google-Doc „Kategorie-Beschreibung (aus der App)“ in
-  `Anlage KI Assistent/<Kategorie>/`, also dort, wo die Buchhaltung ihre Unterlagen bisher ablegt.
-- **Pflichtangaben**: Die KI prüft bei der gewählten Kategorie, ob die genannten Pflichtangaben auf dem
-  Beleg stehen (`fehlende_pflichtangaben`). Fehlt eine, geht der Beleg zur Nachfrage.
-
-**„Lernen“ heißt hier: Der Prompt wird angepasst, das Modell wird nicht nachtrainiert.** Die aktiven
-Kategorien mit allen Regeln stehen bei jeder Analyse in den Anweisungen an die KI. Die Prompt-Version
-bekommt einen Fingerabdruck des Kategorie-Wissens (z. B. `2026-11-17.5+kda009b`). So zeigt die
-Auswertung, ob eine geänderte Beschreibung die Trefferquote verbessert oder verschlechtert. Ein echtes
-Nachtrainieren des Modells lohnt sich erst mit einigen hundert geprüften Belegen. Diese sammeln
-die Prüfungen im Tab „Belege“ gerade.
-
-### Probelauf vor dem Speichern („Hilft meine Änderung?“)
-
-Datei: `testlauf.py`, `App.py` (`_zeige_testlauf`)
-
-Im Tab „Kategorien“ öffnet der Button **„Testen“** (unter dem Formular einer Kategorie) ein Fenster mit dem **Probelauf**.
-Gibt es schon **geprüfte Belege dieser Kategorie** (KI-Wahl oder richtige Belegart), stehen sie an erster
-Stelle: bis zu 15, je etwa zur Hälfte mit Fehler (soll die Änderung beheben) und fehlerfrei (darf nicht
-kaputtgehen); ihre Prüfung ist die Musterlösung. Alternativ: Kategorien wählt man ganz oben in der Auswahlliste; der Button „Neue Kategorie“ daneben legt eine neue an. Die Beispielbelege
-liegen im passenden Ordner unter `Anlage KI Assistent/` (z. B. „Bewirtungsbeleg Deutschland“). Neue
-Beispiele lassen sich direkt in der App hochladen.
-
-Jeder Beispielbeleg wird zweimal komplett analysiert (doppelt lesen, Prüfungen, ggf. Schiedsrichter):
-
-- **vorher**: mit dem gespeicherten Kategorie-Wissen
-- **nachher**: mit dem Stand im Formular, auch wenn er noch nicht gespeichert ist
-
-Ergebnis pro Variante („Bisherige Beschreibung“ / „Neue Beschreibung“): Wie viele Belege wurden als diese
-Kategorie erkannt? (Bewirtungs-Unterarten zählen gegenseitig.) Wie viele müssten nachgefragt werden?
-
-**Musterlösung:** Wurde ein Beispielbeleg (dieselbe Datei) schon im Tab „Belege“ geprüft, gilt diese Prüfung
-als Musterlösung: Dann zählt ihre Belegart statt der des Ordners, und die Felder (Beträge, Datum, Konto …)
-werden verglichen – „Felder richtig gelesen: x von y“, in der Tabelle „falsch: …“. Ohne geprüfte Belege
-weist ein Hinweis darauf hin, dass nur die Belegart zählt.
-
-Dazu ein **Fazit in einem Satz** („Die Änderung hilft“ / „Eher nicht speichern“ / „Kein Unterschied“;
-Reihenfolge: richtig erkennen vor richtig lesen vor wenigen Rückfragen) und eine Tabelle pro Beleg:
-grün = sicher, rot = Nachfrage, grau = Datei nicht lesbar; „anders“, wenn sich Belegart, Nachfrage, Konto,
-Betrag oder Datum zwischen den Varianten unterscheiden.
-Gespeichert wird beim Testlauf **nichts**. Höchstens 15 Belege pro Lauf, 4 parallel. Die neue Kategorie
-und ihre Konten gelten nur innerhalb des Probelaufs – gleichzeitige echte Analysen merken davon nichts.
-
-**Musterlösungen schaffen:** Der Knopf **„Beispielbelege zum Prüfen in „Belege“ legen“** im selben Fenster
-analysiert die ersten 15 Beispielbelege des Ordners einmal ganz normal (aktuelles Kategorie-Wissen) und legt
-sie im Tab „Belege“ ab – Belege, die dort schon liegen, werden übersprungen; kaputte Dateien werden genannt,
-halten die anderen aber nicht auf. Wer sie dort prüft, bekommt beim nächsten Probelauf den Feldvergleich.
-Kosten wie beim normalen Hochladen. Gespeichert mit `herkunft: "beispielordner"`.
-
-## 10. Prüfung und Messung
-
-Datei: `App.py`
-
-Geprüft wird **nur im Tab „Belege“** (Abschnitt 8). Der Tab „Belege hochladen“ zeigt nur das Ergebnis der
-Analyse (bei Stapeln die Übersicht, Details je Beleg zum Ansehen) und verweist zum Prüfen auf „Belege“.
-Früher gab es dort zusätzlich ein Feedback-Formular; dessen Einträge zählen weiter (Quelle „Feedback direkt
-nach der Analyse (frühere Version)“).
-
-Die **Belegart wird ausdrücklich abgefragt**: „Stimmt die Belegart „…“? Ja / Nein“, nichts ist
-vorausgewählt; bei „Nein“ wählt man die richtige. Ohne Antwort lässt sich nicht speichern. (Vorher war die
-KI-Kategorie vorausgewählt – wer sie nicht umstellte, bestätigte sie, auch wenn im Kommentar das Gegenteil
-stand.)
-
-Der Tab **„Auswertung“** (`zeige_auswertung`) zeigt nur Zahlen und Zusammenfassungen – einzelne Belege
-sieht man im Tab „Belege“.
-
-**Belege und Nachfragen**: Belege gesamt, davon geprüft, Nachfragen der KI (davon offen) und *unnötige
-Nachfragen* (nachgefragt, bei der Prüfung war aber alles richtig – viele davon = Regeln zu streng).
-
-**Erkennungsqualität**: jeder geprüfte Beleg zählt **einmal** (jüngste Prüfung pro Datei-Hash):
-
-| Kennzahl | Bedeutung |
-|---|---|
-| Belegart richtig | KI-Kategorie = vom Menschen bestätigte Kategorie |
-| Alle Felder richtig | kein Feld musste korrigiert werden (ein Feld gilt als richtig, wenn es beim Bewerten nicht geändert wurde) |
-| Komplett richtig | beides |
-
-Dazu Trefferquote pro Feld und pro Belegart, die Verwechslungen und ein Hinweis, wenn eine falsche
-Belegart eine **neu angelegte Kategorie** betrifft (die KI kannte sie bei der Analyse evtl. noch nicht).
-Filter nach Prompt-Version und Modell sind aufklappbar.
-
-### Lesequalität (Tab „Auswertung“)
-
-Datei: `lesequalitaet.py`, Anzeige `App.py` (`_zeige_lesequalitaet`)
-
-Jede Analyse speichert ihre Lesungen (Lesung 1 Original, Lesung 2 Kontrast, ggf. Schiedsrichter). Für jeden
-geprüften Beleg wird jede Lesung Feld für Feld mit dem richtigen Wert verglichen – genauso wie im
-Prüfformular (Beträge auf den Cent, Text ohne Groß-/Kleinschreibung, Steuersätze als Menge). Angezeigt
-werden:
-
-- **Tabelle** je Feld, zusammengefasst je Feldart (Textfelder, Beträge und Steuersätze, Datum und Uhrzeit)
-  und für die Belegart: Trefferquote jeder Lesung und des Endergebnisses; unter 100 % hell, unter 90 % kräftiger
-  hinterlegt.
-- **Zähler**: Schiedsrichter eingesetzt / rettete (beide ersten falsch, er richtig) / verschlechterte (eine
-  der ersten richtig, Endergebnis falsch); „Nur Original richtig“ bzw. „Nur Kontrast richtig“.
-- **Endergebnis je Belegtyp** (Foto/PDF, ein-/mehrseitig).
-- Ab 10 Belegen **Hinweise**, z. B. schwächste Feldart, Schiedsrichter ohne Nutzen, Kontrast-Lesung ohne Nutzen.
-
-### Wann hilft der Schiedsrichter? (Tab „Auswertung“, unter Lesequalität)
-
-Datei: `lesequalitaet.py` (`schiedsrichter_wirkung`), Anzeige `App.py` (`_zeige_schiedsrichter_wirkung`)
-
-Für **jeden** Beleg, bei dem der Schiedsrichter gelesen hat (auch ungeprüfte), rechnet die App aus den
-gespeicherten ersten Lesungen nach, **warum** er gerufen wurde (Auslöser: „Lesungen wichen ab“, „Eine Lesung
-fehlgeschlagen“ oder die Art des Nachfragegrunds, z. B. „Rechenprüfung“, „Belegart unsicher“), und zählt je
-Auslöser:
-
-- **Grund danach weg** – Abweichung geklärt (Schiedsrichter stimmt einer der ersten Lesungen zu) bzw. der
-  Nachfragegrund trat bei seiner Lesung nicht mehr auf;
-- **Etwas anders gelesen** – seine Vergleichswerte unterscheiden sich von Lesung 1;
-- bei geprüften Belegen: **Felder besser / schlechter** – er richtig und Lesung 1 falsch bzw. umgekehrt.
-
-Ein Beleg kann mehrere Auslöser haben. Hat der Schiedsrichter bei einem Auslöser in mindestens 5 Fällen nie
-etwas aufgelöst oder anders gelesen, erscheint der Hinweis „Kandidat, ihn dort zu überspringen“. Gerechnet
-wird mit den heutigen Prüfregeln (z. B. zählt eine abweichende Uhrzeit auch bei älteren Belegen).
-
-Kein Modellaufruf. Grundlage für Entscheidungen wie Bildaufbereitung verbessern, eine Lesung weglassen oder
-ein spezielles Texterkennungs-Modell (OCR) als zusätzliche Gegenprobe für bestimmte Felder einsetzen.
+Knopf **„Testen“** unter dem Kategorie-Formular. Bis zu 15 Belege werden zweimal analysiert – mit der
+gespeicherten und mit der geänderten Beschreibung. Am besten mit **geprüften Belegen dieser Kategorie** (je
+etwa zur Hälfte mit und ohne Fehler; ihre Prüfung dient als Musterlösung), alternativ mit Beispielbelegen aus
+Drive. Ergebnis: richtig erkannt, Felder richtig gelesen, Nachfragen – und ein Fazit in einem Satz
+(„Die Änderung hilft“ / „Eher nicht speichern“ / „Kein Unterschied“). Gespeichert wird dabei nichts.
+Noch keine Musterlösungen? Der Knopf „Beispielbelege zum Prüfen in ‚Belege‘ legen“ analysiert die
+Beispielbelege einmal normal und legt sie zum Prüfen ab.
 
 ### Aus Korrekturen lernen (Tab „Auswertung“)
 
-Datei: `App.py` (`_aus_korrekturen_lernen`, `_lernfaelle`), `lernen.py`, Prompt `kategorien.py` (`LERN_PROMPT`)
+1. Die App sammelt geprüfte Belege mit Korrektur, Kommentar oder Nachfrage (höchstens 60). Eindeutige
+   Lesefehler sortiert sie ohne KI aus; Fälle, deren Kategorie seither geändert wurde, lässt sie weg.
+2. Das große Modell ordnet jeden Fall einer Ursache zu (*Regel fehlte*, *unnötige Nachfrage*, *Lesefehler*,
+   *Bewertung widersprüchlich*, *unklar*) und schlägt je einen Satz für eine Kategorie vor.
+3. **„In Kategorie übernehmen“** setzt den Satz als ungespeicherte Änderung in den Kategorien-Tab. Ein Mensch
+   prüft, testet (Probelauf) und speichert.
+4. „Wirkung übernommener Vorschläge“ zeigt, ob die Fehler danach weniger wurden.
 
-Erst sammeln, dann in Runden abarbeiten – der Prompt ändert sich nie automatisch. Es wird kein Modell
-trainiert, nur der Text der Kategorie-Beschreibungen ergänzt.
+**Warum mehr Fälle helfen:** Ein einzelner Fehler kann Zufall sein, dieselbe Verwechslung bei mehreren
+Belegen ist ein Muster – daraus wird eine allgemeine Regel. Unter 20 Fällen weist die App darauf hin.
 
-1. **Fälle**: alle bewerteten Belege (jüngste Bewertung, Filter beachtet), die korrigiert, kommentiert oder
-   nachgefragt wurden – höchstens 60, die neuesten zuerst. Pro Fall gehen an das Modell: Belegart der KI und
-   die richtige, geänderte Felder (vorher/nachher), Nachfragegründe der KI, Kommentar/Begründung des Menschen
-   und Eckdaten des Belegs laut KI (Aussteller, Begründungen, Zweifel, fehlende Pflichtangaben, Konto, Hinweise).
-   - **Ohne KI einsortiert:** nur „Unsicher gelesen“, sonst alles richtig und kein Kommentar → Lesefehler.
-   - **Ältere Fälle ausgelassen:** Wurde die Kategorie (KI-Wahl oder richtige) nach der Analyse inhaltlich
-     geändert, ist der Fehler vielleicht schon behoben. Per Häkchen lassen sie sich doch einbeziehen.
-2. **„Verbesserungsvorschläge erstellen“** (großes Modell, ein Aufruf). Das Modell ordnet jeden Fall einer
-   Ursache zu – *Regel fehlte*, *Unnötige Nachfrage*, *Lesefehler* (auch „Unsicher gelesen“, weil zwei
-   Lesungen abwichen), *Bewertung widersprüchlich*, *Unklar* – und schlägt für Regel-Fälle je einen Satz
-   vor, der genau ein Feld einer Kategorie ergänzt. Überschneidet sich ein Vorschlag mit einer anderen
-   Kategorie, soll es eine Rückfrage stellen statt eines Vorschlags.
-3. **Absicherung im Code** (`lern_antwort_pruefen`): nur bestehende Kategorien und erlaubte Felder,
-   Fallnummern im gültigen Bereich; ein Vorschlag aus nur einem Fall gilt immer als „Einzelfall“.
-4. **„In Kategorie übernehmen“** setzt den Satz als **ungespeicherte Änderung** in das Feld der Kategorie im
-   Tab „Kategorien“ (mit Hinweis). Dort prüfen, mit „Testen“ den Probelauf machen (am besten mit „Geprüfte
-   Belege dieser Kategorie“) und erst dann speichern. Die Kategorie-Version merkt sich, aus welcher Runde der
-   Satz stammt (`aus_lernrunde`); die Tabelle **„Wirkung übernommener Vorschläge“** zeigt den Anteil fehlerhafter
-   Belege der Kategorie vor und nach dem Speichern.
-5. Widersprüchliche Bewertungen werden extra genannt, damit man sie im Tab „Belege“ (Ansicht „Mit
-   Kommentar“) über „Korrigieren“ richtigstellt. Jede Runde wird in `lernrunden/` gespeichert; die jüngste
-   ist auch nach dem Neuladen zu sehen.
+## 12. Auswertung (Tab „Auswertung“)
 
-**Warum mehr Fälle bessere Vorschläge bringen:** Es zählen nur geprüfte Belege mit Korrektur, Kommentar oder
-Nachfrage, nicht die bloße Zahl der Analysen. Ein einzelner Fehler kann Zufall sein, dieselbe Verwechslung bei
-mehreren Belegen ist ein Muster. Daraus entsteht eine allgemeine Regel statt einer, die nur auf einen Beleg
-passt, und Lesefehler lassen sich besser von fehlendem Wissen trennen. Unter 20 Fällen weist die App darauf hin.
+- **Belege und Nachfragen:** wie viele geprüft, wie viele Nachfragen, davon *unnötige* (alles war richtig –
+  viele davon = Regeln zu streng).
+- **Trefferquote:** Belegart richtig, alle Felder richtig, je Feld und je Belegart, Verwechslungen. Filterbar
+  nach Prompt-Version, Modell und Schiedsrichter.
+- **Lesequalität:** Welche Lesung (Original, Kontrast, Schiedsrichter) lag je Feld richtig?
+- **Wann hilft der Schiedsrichter?** Je Auslöser: Hat er den Zweifel aufgelöst, etwas besser oder schlechter
+  gelesen? Ohne Wirkung in mindestens 5 Fällen → Kandidat, ihn dort zu überspringen.
 
-## Anhang: Welche Mathematik steckt im Code?
-
-Kurz: **einfache Mathematik** – Grundrechenarten und Prozentrechnung. Anspruchsvoll ist nur, dass bei Geld jeder
-Cent stimmen muss und die Eingaben (von der KI gelesen) fehlerhaft sein können. Die „Intelligenz“ (Lesen,
-Einordnen) steckt im KI-Modell; der Code macht bewusst nur, was sich exakt und nachprüfbar rechnen lässt.
-
-| Bereich | Wo | Was gerechnet wird | Schwierigkeit |
-|---|---|---|---|
-| Beträge | `beleg_schema.py` (Abschnitt 3) | MwSt. aus Netto = Netto × Satz / 100; enthaltene MwSt. aus Brutto = Brutto × Satz / (100 + Satz); Netto/MwSt. gesamt = Summe der Steuerzeilen; Trinkgeld = EC-Betrag − Rechnung | Prozentrechnung |
-| Cent-Genauigkeit | `beleg_schema.py` (`summe`, `differenz`, `_cent`) | Rechnen mit `Decimal` statt Kommazahlen (im Computer ist 0,1 + 0,2 = 0,30000000000000004), am Ende kaufmännisch auf den Cent runden (`ROUND_HALF_UP`) | Standard-Handwerk, aber wichtig |
-| Lesefehler auflösen | `BelegAnalyse._summen_abgleichen` (Abschnitt 3) | Beide Deutungen durchrechnen: Passt die MwSt. nur, wenn der Betrag brutto war → umdeuten. Ergibt „Steuerzeilen + Trinkgeld“ genau den Gesamtbetrag → das war die Zahlsumme. Nur bei genau einer passenden Deutung | etwas Logik, keine schwere Mathematik |
-| Rechenprüfungen | `checks.pruefen` (Abschnitt 4) | Vergleiche mit Toleranz (2–3 Cent): Steuerzeilen = Gesamtbetrag? MwSt. = Netto × Satz? Netto + MwSt. = Brutto? Satz doppelt? EC-Betrag < Rechnung? Trinkgeld > 30 % der Rechnung? Datum in der Zukunft? | Vergleiche |
-| Texte vergleichen | `merkmale.py`, `checks._gleich` | Namen normalisieren (klein, Umlaute, „GmbH“ weg); Ähnlichkeit per `SequenceMatcher` (Python-Standardbibliothek): 2 × gemeinsame Zeichen / Gesamtlänge, ab 0,88 gleich | fertige Bibliothek |
-| Auswertung | `lesequalitaet.py`, `lernen.py`, Tab „Auswertung“ | Zählen und Prozente: Trefferquoten je Feld/Belegart, Fehlerquote vorher/nachher, Wirkung des Schiedsrichters. Keine Statistik im engeren Sinn (Konfidenzintervalle, Signifikanz) – bei so wenigen Belegen noch nicht sinnvoll | Zählen |
-| Technik am Rand | `storage.py`, `kategorien.py`, `kalender_verbindung.py` | SHA-256-Hashes (Datei wiedererkennen, Kategorie-Wissen geändert?), HMAC und Verschlüsselung (Fernet) für die Kalender-Verbindung | fertige Bibliotheken |
+---
 
 ## Was nicht abgesichert ist
 
-- **Texte** (Belegnummer, Name, Adresse) haben keine Rechen-Gegenprobe. Abgesichert sind sie nur durch das
-  Doppelt-Lesen und den Schiedsrichter.
-- Liest die KI **zwei zusammenpassende Zahlen gleichzeitig falsch** (z. B. Netto und MwSt. derselben Zeile
-  so, dass die Rechnung trotzdem aufgeht), fällt das nur auf, wenn die Gesamtsumme nicht mehr stimmt.
-  Das ist sehr unwahrscheinlich, aber möglich.
+- **Texte** (Belegnummer, Name, Adresse) haben keine Rechen-Gegenprobe – nur Doppelt-Lesen und Schiedsrichter.
+- Liest die KI **zwei zusammenpassende Zahlen gleichzeitig falsch**, fällt das nur auf, wenn die Gesamtsumme
+  nicht mehr stimmt. Sehr unwahrscheinlich, aber möglich.
 - Fachliche Fragen (z. B. ob eine Bewirtung steuerlich anerkannt wird) prüft die App nicht.
 
-## Ergebnis mit den 13 Beispielbelegen (Ordner „Bewirtungsbeleg Deutschland“)
+## Anhang: Welche Mathematik steckt im Code?
 
-| | vorher (17.11.2026, Prompt 2026-11-17.3) | jetzt (Prompt 2026-11-17.4) |
+Kurz: **einfache Mathematik** – Grundrechenarten und Prozentrechnung. Anspruchsvoll ist nur, dass bei Geld
+jeder Cent stimmen muss und die gelesenen Werte fehlerhaft sein können. Die „Intelligenz“ (Lesen, Einordnen)
+steckt im KI-Modell; der Code macht bewusst nur, was sich exakt und nachprüfbar rechnen lässt.
+
+| Bereich | Was gerechnet wird | Schwierigkeit |
 |---|---|---|
-| ohne Nachfrage durchgelaufen | 5 | 9 |
-| zur Nachfrage | 8 | 4 |
-
-Die 4 verbleibenden Nachfragen: einmal Auslandsbeleg, zweimal Steuersatz 0 %, einmal passt der EC-Beleg
-nicht zur Rechnung. Ob diese Einschätzungen der KI stimmen, muss die Buchhaltung bestätigen.
+| Beträge (Abschnitt 3) | MwSt., Netto, Trinkgeld – Formeln oben | Prozentrechnung |
+| Cent-Genauigkeit | exakte Dezimalzahlen statt Kommazahlen (im Computer ist 0,1 + 0,2 = 0,30000000000000004), kaufmännisch runden | Standard-Handwerk, aber wichtig |
+| Lesefehler auflösen (Abschnitt 3) | beide Deutungen durchrechnen, nur übernehmen, wenn genau eine passt | etwas Logik |
+| Rechenprüfungen (Abschnitt 4) | Vergleiche mit 2–3 Cent Toleranz | Vergleiche |
+| Namen vergleichen (Abschnitt 5, 7) | Ähnlichkeit 0–1 aus der Python-Standardbibliothek, ab 0,88 gleich | fertige Bibliothek |
+| Auswertung (Abschnitt 12) | Zählen und Prozente, keine Statistik im engeren Sinn | Zählen |
+| Technik am Rand | Prüfsummen (Datei wiedererkennen), Verschlüsselung des Kalender-Zugangs | fertige Bibliotheken |
