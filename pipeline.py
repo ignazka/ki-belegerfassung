@@ -7,6 +7,8 @@
 3. Sonst liest MODEL_GROSS. Dessen Ergebnis gilt. Ein Feld, in dem die beiden ersten Lesungen
    abwichen, gilt als geklärt, wenn das große Modell einer der beiden Lesungen zustimmt.
    Ungeklärte Felder + alle übrigen Prüfgründe -> Nachfrage.
+   Wählt die KI „Sonstiger Beleg“ für einen von Hand bekannten Aussteller, setzt der Code die Belegart
+   (checks.belegart_richtigstellen) – das spart den Schiedsrichter und die Nachfrage.
    Schiedsrichter abgeschaltet (Schalter in der Seitenleiste, zum Testen): statt Schritt 3 gilt Lesung 1,
    abweichende Felder und alle Prüfgründe gehen als Nachfrage an den Menschen.
 """
@@ -16,7 +18,7 @@ from contextvars import copy_context
 from dataclasses import dataclass, field
 
 from beleg_schema import BelegAnalyse
-from checks import _gleich, abweichungen, anzeige_wert, nachfragen_gruende, nur_fachliche_gruende, pruefen, vergleichswerte
+from checks import _gleich, abweichungen, anzeige_wert, belegart_richtigstellen, nachfragen_gruende, nur_fachliche_gruende, pruefen, vergleichswerte
 from extraction import SYSTEM_PROMPT, MODEL, MODEL_GROSS, AnalyseFehler, analysieren, dateien_zu_bildern, kontrast_variante
 
 
@@ -41,6 +43,7 @@ class LeseErgebnis:
     schiedsrichter: bool = False
     befunde: list[str] = field(default_factory=list)
     gruende: list[str] = field(default_factory=list)
+    richtiggestellt: dict | None = None  # Belegart per bekanntem Aussteller gesetzt (checks)
 
     @property
     def usage(self) -> list[dict]:
@@ -81,26 +84,31 @@ def beleg_lesen(bilder: list[bytes], dateien=None, status=None, system: str = SY
     basis = gueltig[0] if gueltig else None
     diff = abweichungen(l1.analyse, l2.analyse) if len(gueltig) == 2 else {}
 
+    # „Sonstiger Beleg“ bei einem von Hand bekannten Aussteller -> Belegart im Code richtigstellen
+    # (die Lesungen selbst bleiben unverändert gespeichert)
+    basis_a, vermerk = belegart_richtigstellen(basis.analyse) if basis is not None else (None, None)
     if basis is not None:
-        befunde = pruefen(basis.analyse)
-        gruende = nachfragen_gruende(basis.analyse, befunde)
+        befunde = pruefen(basis_a)
+        gruende = nachfragen_gruende(basis_a, befunde)
         if len(gueltig) == 2 and not diff and not gruende:
-            return LeseErgebnis(basis.analyse, basis.raw, MODEL, lesungen, befunde=befunde)
-        if len(gueltig) == 2 and not diff and nur_fachliche_gruende(basis.analyse, befunde):
+            return LeseErgebnis(basis_a, basis.raw, MODEL, lesungen, befunde=befunde, richtiggestellt=vermerk)
+        if len(gueltig) == 2 and not diff and nur_fachliche_gruende(basis_a, befunde):
             # z. B. Auslandsbeleg: beide Lesungen stimmen, genaueres Lesen ändert nichts -> kein Schiedsrichter,
             # aber Nachfrage an den Menschen bleibt
-            return LeseErgebnis(basis.analyse, basis.raw, MODEL, lesungen, befunde=befunde, gruende=gruende)
+            return LeseErgebnis(basis_a, basis.raw, MODEL, lesungen, befunde=befunde, gruende=gruende,
+                                richtiggestellt=vermerk)
 
     if not schiedsrichter:
         if basis is None:
             raise AnalyseFehler(" / ".join(l.fehler or "" for l in lesungen), lesungen[0].raw)
-        befunde = pruefen(basis.analyse)
-        gruende = nachfragen_gruende(basis.analyse, befunde)
+        befunde = pruefen(basis_a)
+        gruende = nachfragen_gruende(basis_a, befunde)
         if len(gueltig) < 2:
             gruende.append("Nur eine Lesung gelungen, Schiedsrichter abgeschaltet – ohne Gegenprobe, bitte die "
                            "Werte prüfen.")
         gruende += [_unsicher(f, lesungen) for f in diff]
-        return LeseErgebnis(basis.analyse, basis.raw, MODEL, lesungen, diff, list(diff), False, befunde, gruende)
+        return LeseErgebnis(basis_a, basis.raw, MODEL, lesungen, diff, list(diff), False, befunde, gruende,
+                            vermerk)
 
     # Zweifel -> großes Modell
     melden("Lesungen weichen ab oder Prüfung offen – großes Modell schaut nach …")
@@ -114,18 +122,19 @@ def beleg_lesen(bilder: list[bytes], dateien=None, status=None, system: str = SY
     if l3.analyse is None:
         if basis is None:
             raise AnalyseFehler(" / ".join(l.fehler or "" for l in lesungen), lesungen[0].raw)
-        befunde = pruefen(basis.analyse)
-        gruende = nachfragen_gruende(basis.analyse, befunde)
+        befunde = pruefen(basis_a)
+        gruende = nachfragen_gruende(basis_a, befunde)
         gruende.append(f"Großes Modell nicht verfügbar ({l3.fehler}).")
         gruende += [f"Doppelt gelesen, Abweichung bei {f}: {x or '–'} / {y or '–'}" for f, (x, y) in diff.items()]
-        return LeseErgebnis(basis.analyse, basis.raw, MODEL, lesungen, diff, list(diff), True, befunde, gruende)
+        return LeseErgebnis(basis_a, basis.raw, MODEL, lesungen, diff, list(diff), True, befunde, gruende,
+                            vermerk)
 
-    gross = l3.analyse
+    gross, vermerk = belegart_richtigstellen(l3.analyse)
     werte_gross = vergleichswerte(gross)
     ungeklaert = [f for f, (x, y) in diff.items()
                   if not (_gleich(f, werte_gross[f], x) or _gleich(f, werte_gross[f], y))]
     if len(gueltig) < 2:  # nur eine kleine Lesung -> mit der vergleichen
-        andere = abweichungen(basis.analyse, gross) if basis else {}
+        andere = abweichungen(basis_a, gross) if basis else {}
         ungeklaert = list(andere)
 
     befunde = pruefen(gross)
@@ -133,4 +142,4 @@ def beleg_lesen(bilder: list[bytes], dateien=None, status=None, system: str = SY
     if basis is None:  # beide kleinen Lesungen fehlgeschlagen -> niemand hat gegengelesen
         gruende.append("Nur das große Modell konnte den Beleg lesen – ohne Gegenprobe, bitte die Werte prüfen.")
     gruende += [_unsicher(f, lesungen) for f in ungeklaert]
-    return LeseErgebnis(gross, l3.raw, MODEL_GROSS, lesungen, diff, ungeklaert, True, befunde, gruende)
+    return LeseErgebnis(gross, l3.raw, MODEL_GROSS, lesungen, diff, ungeklaert, True, befunde, gruende, vermerk)

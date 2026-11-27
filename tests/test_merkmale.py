@@ -96,3 +96,50 @@ def test_bestaetigter_aussteller_spart_den_schiedsrichter(monkeypatch):
     merkmale.registrieren([_m("Hotel Am Markt", "uebernachtung")], [])
     erg = pipeline.beleg_lesen([b"BILD"])
     assert not erg.schiedsrichter and erg.gruende == [] and len(aufrufe) == 2
+
+
+# Automatisches Richtigstellen: KI sagt „Sonstiger Beleg“, Aussteller ist von Hand bekannt
+def test_sonstiger_beleg_wird_bei_hand_eintrag_richtiggestellt():
+    from beleg_schema import gueltige_konten
+    from checks import belegart_richtigstellen
+    merkmale.registrieren([_m("Hotel Am Markt", "uebernachtung")], [])
+    a = _analyse(kategorie="sonstiger_beleg", restaurant_name="Hotel am Markt GmbH", kategorie_unsicher=True)
+    neu, vermerk = belegart_richtigstellen(a)
+    assert neu.kategorie == "uebernachtung" and not neu.kategorie_unsicher
+    assert "Vom Programm richtiggestellt" in neu.kategorie_grund
+    assert neu.konto == (gueltige_konten().get("uebernachtung") or {}).get("standard")
+    assert vermerk == {"ki": "sonstiger_beleg", "neu": "uebernachtung", "aussteller": "Hotel Am Markt"}
+    assert a.kategorie == "sonstiger_beleg"  # Original (Lesung) bleibt unverändert
+    assert nachfragen_gruende(neu, []) == []
+
+
+def test_kein_richtigstellen_ohne_hand_eintrag_oder_bei_anderer_belegart():
+    from checks import belegart_richtigstellen
+    a = _analyse(kategorie="sonstiger_beleg", restaurant_name="Hotel Am Markt")
+    merkmale.registrieren([], [_m("Hotel Am Markt", "uebernachtung", "belege", 3)])  # nur automatisch bekannt
+    assert belegart_richtigstellen(a) == (a, None)
+    assert any(g.startswith("Bekannter Aussteller") for g in nachfragen_gruende(a, []))  # -> Nachfrage
+    merkmale.registrieren([_m("Hotel Am Markt", "uebernachtung")], [])
+    b = _analyse(kategorie="restaurant_beleg", restaurant_name="Hotel Am Markt")  # echte Wahl der KI -> nur Nachfrage
+    assert belegart_richtigstellen(b) == (b, None)
+    merkmale.registrieren([_m("Hotel Am Markt", "gibt_es_nicht")], [])
+    assert belegart_richtigstellen(a) == (a, None)
+
+
+def test_richtigstellen_spart_schiedsrichter_und_nachfrage(monkeypatch):
+    import importlib
+
+    import pipeline
+    pipeline = importlib.reload(pipeline)
+    monkeypatch.setattr(pipeline, "kontrast_variante", lambda bild: b"KONTRAST")
+    aufrufe = []
+
+    def analysieren(bilder, modell, system):
+        aufrufe.append(modell)
+        return _analyse(kategorie="sonstiger_beleg", restaurant_name="Hotel Am Markt"), "{}", {}
+    monkeypatch.setattr(pipeline, "analysieren", analysieren)
+    merkmale.registrieren([_m("Hotel Am Markt", "uebernachtung")], [])
+    erg = pipeline.beleg_lesen([b"BILD"])
+    assert erg.analyse.kategorie == "uebernachtung" and erg.gruende == [] and len(aufrufe) == 2
+    assert erg.richtiggestellt["ki"] == "sonstiger_beleg"
+    assert all(l.analyse.kategorie == "sonstiger_beleg" for l in erg.lesungen)  # Lesungen bleiben, wie gelesen

@@ -110,6 +110,23 @@ def _aussteller_abgleich(a: BelegAnalyse) -> tuple[bool, str | None]:
                    f"„{namen.get(a.kategorie, a.kategorie)}“ gewählt.")
 
 
+def belegart_richtigstellen(a: BelegAnalyse) -> tuple[BelegAnalyse, dict | None]:
+    """KI sagt „Sonstiger Beleg“, der Aussteller ist aber VON HAND einer Belegart zugeordnet -> Belegart im
+    Code setzen (Kopie; Konto neu nach den Regeln der Kategorie). Automatisch bekannte Aussteller (aus Prüfungen)
+    stellen nichts richtig, sie lösen nur eine Nachfrage aus. -> (Analyse, Vermerk oder None)."""
+    if a.kategorie != "sonstiger_beleg" or not a.lesbar:
+        return a, None
+    m = merkmale.nachschlagen(a.restaurant_name)
+    if not m or m["quelle"] != "hand" or m["kategorie"] not in gueltige_kategorien():
+        return a, None
+    neu = a.model_copy(deep=True, update={
+        "kategorie": m["kategorie"], "kategorie_unsicher": False, "konto": None, "konto_unsicher": False,
+        "kategorie_grund": f"Vom Programm richtiggestellt: „{m['name']}“ ist laut Kategorie-Einstellungen ein "
+                           f"bekannter Aussteller (die KI hatte „Sonstiger Beleg“ gewählt)."})
+    neu._konto_festlegen()
+    return neu, {"ki": a.kategorie, "neu": m["kategorie"], "aussteller": m["name"]}
+
+
 def _gruende_mit_art(a: BelegAnalyse, befunde: list[str], mit_merkmalen: bool = True) -> list[tuple[str, bool]]:
     """(Grund, fachlich). fachlich = genaueres Lesen ändert nichts (z. B. Auslandsbeleg) – dann bringt der
     Schiedsrichter nichts, ein Mensch muss trotzdem draufschauen. Im Zweifel NICHT fachlich.

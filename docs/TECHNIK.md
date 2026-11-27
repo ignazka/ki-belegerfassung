@@ -156,6 +156,10 @@ Menschen pflegen, und über **Messung**:
 (`bekannte_merkmale`) und aus den jüngsten Prüfungen (`merkmale.aus_bewertungen`) – `merkmale.registrieren`,
 wie `kategorien_registrieren`. `checks._aussteller_abgleich` nutzt sie; `lesequalitaet` rechnet alte Lesungen mit
 `mit_merkmalen=False` nach (die heutige Liste gab es damals nicht). Wirkt nicht getrennt im Probelauf.
+`checks.belegart_richtigstellen`: KI „Sonstiger Beleg“ + Aussteller von Hand bekannt → `pipeline.beleg_lesen`
+setzt auf einer Kopie der Analyse die Belegart (vor den Prüfungen, also ohne Schiedsrichter/Nachfrage);
+`LeseErgebnis.richtiggestellt` → Feld `belegart_richtiggestellt {ki, neu, aussteller}` in Analyse und Feedback.
+Die Trefferquote „Belegart“ der Auswertung zählt solche Belege als richtig; die Lesequalität (rohe Lesungen) nicht.
 
 ### 5.2 Vor dem Speichern testen (Probelauf)
 

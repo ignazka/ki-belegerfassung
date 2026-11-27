@@ -203,6 +203,10 @@ Gründe:
 dieselbe Belegart; Bewirtungs-Unterarten zählen als eine). Der Code gleicht den gelesenen Aussteller tolerant ab
 (Groß/klein, „GmbH“ & Co., kleine Lesefehler, Teiltreffer ab 4 Zeichen). Passt die Belegart der KI, entfällt
 „Belegart unsicher“ – oft ohne Schiedsrichter. Passt sie nicht: Nachfrage, das große Modell darf nachsehen.
+Ausnahme: Wählt die KI „Sonstiger Beleg“ und ist der Aussteller **von Hand** eingetragen, stellt der Code die
+Belegart selbst richtig (Konto neu nach der Kategorie) – ohne Schiedsrichter und ohne Nachfrage. Im Prüfformular
+steht dann „Belegart vom Programm richtiggestellt“; Analyse und Prüfung vermerken `belegart_richtiggestellt`,
+die gespeicherten Lesungen zeigen weiter die Antwort der KI (für die Lesequalität).
 Nicht im Prompt, die Prompt-Version ändert sich dadurch nicht.
 
 ## 7a. Abgleich mit dem Firmenkalender

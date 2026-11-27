@@ -57,7 +57,8 @@
             "Kollegen erklären würdet." },
     { tab: 2, ziel: () => ersterSichtbarer(".st-key-kategorie_merkmale"), titel: "Bekannte Aussteller",
       text: "Wer stellt Belege dieser Art aus – z. B. euer Stammhotel? Liest die KI einen dieser Namen, prüft das " +
-            "Programm ihre Belegart gegen und fragt nach, wenn sie nicht passt. Aussteller, die ihr schon " +
+            "Programm ihre Belegart gegen und fragt nach, wenn sie nicht passt. Findet die KI gar keine Belegart, " +
+            "setzt das Programm sie bei hier eingetragenen Ausstellern selbst. Aussteller, die ihr schon " +
             "mehrfach geprüft habt, kennt es automatisch." },
     { tab: 2, ziel: () => ersterSichtbarer(".st-key-kategorie_konto"), titel: "Konto für sevDesk",
       text: "Jede Kategorie bekommt ein SKR04-Konto, damit sevDesk den Beleg später richtig bucht. In der Liste " +

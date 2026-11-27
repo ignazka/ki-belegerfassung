@@ -228,3 +228,17 @@ def test_mitarbeiter_im_pruefformular():
     A.keine_fehler(at)
     assert A.SPEICHER["feedback"][-1]["felder"]["mitarbeiter"] == {"modell": "M. Muster", "korrekt": "Max Muster",
                                                                    "richtig": False}
+
+
+def test_richtiggestellte_belegart_wird_angezeigt_und_vermerkt():
+    eintrag = A.analyse_eintrag("db", kategorie="uebernachtung", restaurant_name="Hotel Am Markt")
+    eintrag["belegart_richtiggestellt"] = {"ki": "sonstiger_beleg", "neu": "uebernachtung",
+                                           "aussteller": "Hotel Am Markt"}
+    at = A.app(analysen=[eintrag])
+    at.segmented_control[0].set_value("ungeprueft").run()
+    A.keine_fehler(at)
+    assert any("Belegart vom Programm richtiggestellt" in i.value and "Hotel Am Markt" in i.value for i in at.info)
+    A.radio(at, "Stimmt die Belegart").set_value("ja").run()
+    A.knopf(at, "Prüfung speichern").click().run()
+    neu = A.SPEICHER["feedback"][-1]
+    assert neu["belegart_richtiggestellt"]["ki"] == "sonstiger_beleg" and neu["kategorie"]["richtig"]

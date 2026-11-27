@@ -313,6 +313,7 @@ def _beleg_verarbeiten(dateien, status=None) -> dict:
         "ungeklaert": lese.ungeklaert,
         "schiedsrichter": lese.schiedsrichter,
         "schiedsrichter_aus": not SCHIEDSRICHTER_AN,
+        "belegart_richtiggestellt": lese.richtiggestellt,
         "befunde": lese.befunde,
         "nachfrage_gruende": gruende,
         "raw": lese.raw,
@@ -450,6 +451,9 @@ def _beleg_ablegen(erg, herkunft: str | None = None) -> str:
             "lesungen": _lesungen_protokoll(erg),
             "schiedsrichter": erg.get("schiedsrichter", False),
             **({"schiedsrichter_aus": True} if erg.get("schiedsrichter_aus") else {}),  # fehlt = war an
+            # {"ki", "neu", "aussteller"}: KI sagte „Sonstiger Beleg“, Code hat per bekanntem Aussteller gesetzt
+            **({"belegart_richtiggestellt": erg["belegart_richtiggestellt"]}
+               if erg.get("belegart_richtiggestellt") else {}),
             "kalender": erg["kalender"].als_dict() if erg.get("kalender") else None,
             "modell": erg["modell"],
             "prompt_version": erg["prompt_version"],
@@ -1726,6 +1730,11 @@ def _beleg_formular(b: dict, modus: str, naechster: str | None, offen_key: str |
                    "korrigieren. Beträge wie 1.234,50 – Datum als TT.MM.JJJJ.")
         if a and a.get("kalender"):
             _zeige_kalender(a["kalender"])
+        rs = (a or {}).get("belegart_richtiggestellt")
+        if rs:
+            st.info(f"**Belegart vom Programm richtiggestellt:** Die KI hatte „{_kategorie_label(rs.get('ki'))}“ "
+                    f"gewählt. „{rs.get('aussteller')}“ ist in den Kategorie-Einstellungen als bekannter Aussteller "
+                    f"von „{_kategorie_label(rs.get('neu'))}“ eingetragen.", icon=":material/auto_fix_high:")
         if ki.korrekturen:
             st.info("**Vom Code umgedeutet**\n\n" + "\n".join(f"- {k}" for k in ki.korrekturen),
                     icon=":material/calculate:")
@@ -1773,8 +1782,8 @@ def _beleg_formular(b: dict, modus: str, naechster: str | None, offen_key: str |
     else:
         neu = {k: a.get(k) for k in ("datei_sha256", "dateiname", "beleg_pfad", "beleg_pfade", "modell",
                                       "prompt_version", "analyse", "kalender", "schiedsrichter",
-                                      "schiedsrichter_aus")}
-        neu = {k: v for k, v in neu.items() if k != "schiedsrichter_aus" or v}
+                                      "schiedsrichter_aus", "belegart_richtiggestellt")}
+        neu = {k: v for k, v in neu.items() if k not in ("schiedsrichter_aus", "belegart_richtiggestellt") or v}
         neu.update({"quelle": "nachfrage" if b["gruende"] else "pruefung", "nachfrage_gruende": b["gruende"]})
     neu.update({
         "datei_sha256": b["sha"],
@@ -2019,7 +2028,8 @@ def _merkmale_eingabe(praefix: str, darf: bool, schluessel: str) -> None:
     with st.container(key="kategorie_merkmale"):
         st.markdown("**Bekannte Aussteller** – wer stellt Belege dieser Kategorie aus?")
         st.caption("Liest die KI einen dieser Namen auf einem Beleg, prüft das Programm ihre Belegart gegen: Passt "
-                   "sie, entfallen ihre Zweifel an der Belegart; passt sie nicht, fragt es nach. Kleine Lesefehler "
+                   "sie, entfallen ihre Zweifel an der Belegart; passt sie nicht, fragt es nach. Hält die KI ihn für einen "
+                   "„Sonstigen Beleg“, setzt das Programm die Belegart selbst. Kleine Lesefehler "
                    "und Zusätze wie „GmbH“ machen nichts. Wirkt ab dem Speichern (nicht im Probelauf).")
         tabelle = st.data_editor(
             pd.DataFrame(ss.get(f"{praefix}_bekannte_merkmale") or [], columns=["wert", "anmerkung"]),
