@@ -190,6 +190,8 @@ Kurzfristig:
 - **Verbesserungsrunden:** Prüfungen sammeln (ab ca. 20–30 Korrekturen), „Aus Korrekturen lernen“
   ausführen, Vorschläge im Kategorien-Tab testen und übernehmen; Wirkung über die Prompt-Version in der
   Auswertung vergleichen.
+- **Schiedsrichter testweise abschalten:** Schalter in der Seitenleiste (`schiedsrichter_an`, je Sitzung);
+  Analyse/Prüfung vermerken `schiedsrichter_aus`, Auswertung filtert danach.
 - **Schiedsrichter gezielt überspringen:** sobald „Wann hilft der Schiedsrichter?“ (Auswertung) für einen
   Auslöser genug Fälle ohne Wirkung zeigt, ihn dort in `pipeline.beleg_lesen` auslassen (wie schon bei rein
   fachlichen Gründen).

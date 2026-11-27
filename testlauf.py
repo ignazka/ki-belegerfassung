@@ -41,13 +41,13 @@ class Ergebnis:
     werte: dict | None = None  # {Prüffeld: gelesener Wert} für den Vergleich mit einer Musterlösung
 
 
-def _analysieren(beleg: tuple, system: str, konten: dict | None = None) -> Ergebnis:
+def _analysieren(beleg: tuple, system: str, konten: dict | None = None, schiedsrichter: bool = True) -> Ergebnis:
     """beleg: (name, bytes, mime) oder – bei mehreren Dateien/Seiten – (name, [(name, bytes, mime), …]).
     konten: Konto-Regeln DIESER Variante ({kategorie: {"standard", "ausnahmen"}}). Ohne: wie gelesen."""
     try:
         dateien = beleg[1] if isinstance(beleg[1], list) else [beleg]
         bilder = dateien_zu_bildern(dateien)[0]
-        e = beleg_lesen(bilder, dateien, system=system)
+        e = beleg_lesen(bilder, dateien, system=system, schiedsrichter=schiedsrichter)
     except Exception as ex:
         return Ergebnis(None, True, [], "", "", f"{type(ex).__name__}: {ex}")
     a = e.analyse
@@ -74,17 +74,18 @@ def konten_vereinigen(*konten: dict[str, dict]) -> dict[str, dict]:
     return {kategorie: {"standard": None, "ausnahmen": sorted(nummern)} for kategorie, nummern in alle.items()}
 
 
-def _im_sonderstand(kategorien, alle_konten, beleg, system, konten):
+def _im_sonderstand(kategorien, alle_konten, beleg, system, konten, schiedsrichter=True):
     """Läuft im Arbeits-Thread: Kategorien/Konten des Probelaufs gelten nur hier (und in beleg_lesens Threads)."""
     if kategorien is None and not alle_konten:
-        return _analysieren(beleg, system, konten)
+        return _analysieren(beleg, system, konten, schiedsrichter)
     with sonderstand(gueltige_kategorien() if kategorien is None else kategorien,
                      alle_konten or gueltige_konten()):
-        return _analysieren(beleg, system, konten)
+        return _analysieren(beleg, system, konten, schiedsrichter)
 
 
 def ausfuehren(belege: list[tuple[str, bytes, str]], varianten: dict[str, str], fortschritt=None,
-               konten: dict[str, dict] | None = None, kategorien: dict[str, str] | None = None):
+               konten: dict[str, dict] | None = None, kategorien: dict[str, str] | None = None,
+               schiedsrichter: bool = True):
     """belege: [(name, bytes, mime)]; varianten: {"vorher": system_prompt, "nachher": system_prompt};
     konten: {variante: Konto-Regeln} (optional); kategorien: gültige {schluessel: Name} für den Probelauf
     (z. B. inkl. der noch nicht gespeicherten Kategorie). -> {beleg_name: {variante: Ergebnis}}"""
@@ -94,7 +95,8 @@ def ausfuehren(belege: list[tuple[str, bytes, str]], varianten: dict[str, str], 
     # während des Laufs alle Konten beider Varianten erlauben; je Variante entscheidet danach konto_waehlen
     alle_konten = konten_vereinigen(*konten.values()) if konten else {}
     with ThreadPoolExecutor(max_workers=PARALLEL) as pool:
-        futures = {pool.submit(_im_sonderstand, kategorien, alle_konten, b, system, (konten or {}).get(v)): (b[0], v)
+        futures = {pool.submit(_im_sonderstand, kategorien, alle_konten, b, system, (konten or {}).get(v),
+                               schiedsrichter): (b[0], v)
                    for b, v, system in auftraege}
         for fertig, f in enumerate(as_completed(futures), start=1):
             name, variante = futures[f]

@@ -215,6 +215,15 @@ try:
     _kalender_seitenleiste()
 except Exception as e:  # Kalender darf die App nie blockieren
     st.sidebar.caption(f"Kalender: nicht verfügbar ({e})")
+# Schiedsrichter (großes Modell) für diese Sitzung abschalten – nur zum Testen, was er bringt
+st.sidebar.toggle(
+    "Schiedsrichter (großes Modell)", value=True, key="schiedsrichter_an",
+    help="Liest bei Zweifeln ein größeres Modell nach. Ausgeschaltet gilt die erste Lesung, und jeder Zweifel geht "
+         "als Nachfrage an euch. Gilt nur für diese Sitzung (nach dem Neuladen wieder an) und wird bei jeder "
+         "Analyse vermerkt – die Auswertung kann dann mit und ohne vergleichen.")
+SCHIEDSRICHTER_AN = st.session_state.get("schiedsrichter_an", True)
+if not SCHIEDSRICHTER_AN:
+    st.sidebar.caption(":orange[:material/warning: Schiedsrichter aus – Zweifel gehen direkt zur Nachfrage.]")
 einfuehrung_knopf()
 thema_einbetten()
 thema_knopf()  # oben rechts neben dem Menü
@@ -281,7 +290,7 @@ def _beleg_verarbeiten(dateien, status=None) -> dict:
         raise DateiFehler("Datei konnte nicht geöffnet werden – beschädigt oder kein gültiges PDF/Bild.") from e
 
     t0 = time.time()
-    lese = beleg_lesen(bilder, dateien, status=status, system=SYSTEM_PROMPT_AKTUELL)
+    lese = beleg_lesen(bilder, dateien, status=status, system=SYSTEM_PROMPT_AKTUELL, schiedsrichter=SCHIEDSRICHTER_AN)
     gruende = list(lese.gruende)
     if status:
         status("Gleiche mit dem Firmenkalender ab …")
@@ -303,6 +312,7 @@ def _beleg_verarbeiten(dateien, status=None) -> dict:
         "abweichungen": lese.abweichungen,
         "ungeklaert": lese.ungeklaert,
         "schiedsrichter": lese.schiedsrichter,
+        "schiedsrichter_aus": not SCHIEDSRICHTER_AN,
         "befunde": lese.befunde,
         "nachfrage_gruende": gruende,
         "raw": lese.raw,
@@ -439,6 +449,7 @@ def _beleg_ablegen(erg, herkunft: str | None = None) -> str:
             "rohantwort": erg["raw"],
             "lesungen": _lesungen_protokoll(erg),
             "schiedsrichter": erg.get("schiedsrichter", False),
+            **({"schiedsrichter_aus": True} if erg.get("schiedsrichter_aus") else {}),  # fehlt = war an
             "kalender": erg["kalender"].als_dict() if erg.get("kalender") else None,
             "modell": erg["modell"],
             "prompt_version": erg["prompt_version"],
@@ -797,16 +808,23 @@ def zeige_auswertung():
         return
     st.markdown("**Erkennungsqualität**")
 
-    with st.expander("Filter: Prompt-Version und Modell"):
+    def schiedsrichter_text(e):
+        return "abgeschaltet" if e.get("schiedsrichter_aus") else "an"
+
+    with st.expander("Filter: Prompt-Version, Modell und Schiedsrichter"):
         versionen = sorted({e.get("prompt_version") or "?" for e in alle}, reverse=True)
         modelle = sorted({e.get("modell") or "?" for e in alle})
-        f1, f2 = st.columns(2)
+        sr_werte = sorted({schiedsrichter_text(e) for e in alle})
+        f1, f2, f3 = st.columns(3)
         v_auswahl = f1.multiselect("Prompt-Version", versionen, default=versionen,
                                    help="Jede Änderung an Anweisungen oder Kategorien erzeugt eine neue Version.")
         m_auswahl = f2.multiselect("Modell", modelle, default=modelle)
+        s_auswahl = f3.multiselect("Schiedsrichter", sr_werte, default=sr_werte,
+                                   help="„abgeschaltet“: analysiert, während der Schalter in der Seitenleiste aus war.")
     eintraege = _juengste_bewertungen([
         e for e in alle
         if (e.get("prompt_version") or "?") in v_auswahl and (e.get("modell") or "?") in m_auswahl
+        and schiedsrichter_text(e) in s_auswahl
     ])
     if not eintraege:
         st.warning("Keine Einträge für diese Auswahl.")
@@ -1754,7 +1772,9 @@ def _beleg_formular(b: dict, modus: str, naechster: str | None, offen_key: str |
         neu.update({"korrektur_von": f.get("zeitpunkt"), "kommentar_vorher": f.get("kommentar")})
     else:
         neu = {k: a.get(k) for k in ("datei_sha256", "dateiname", "beleg_pfad", "beleg_pfade", "modell",
-                                      "prompt_version", "analyse", "kalender", "schiedsrichter")}
+                                      "prompt_version", "analyse", "kalender", "schiedsrichter",
+                                      "schiedsrichter_aus")}
+        neu = {k: v for k, v in neu.items() if k != "schiedsrichter_aus" or v}
         neu.update({"quelle": "nachfrage" if b["gruende"] else "pruefung", "nachfrage_gruende": b["gruende"]})
     neu.update({
         "datei_sha256": b["sha"],
@@ -2267,7 +2287,7 @@ def _probelauf_starten(starten: bool, wahl: str, k: dict, name: str, schluessel:
             ergebnisse = testlauf_ausfuehren(
                 daten, varianten,
                 fortschritt=lambda f, g: balken.progress(f / g, text=f"Probelauf: {f} von {g} Lesungen fertig"),
-                konten=konten, kategorien={**labels(KAT_STAND), schluessel: name},
+                konten=konten, kategorien={**labels(KAT_STAND), schluessel: name}, schiedsrichter=SCHIEDSRICHTER_AN,
             )
         except Exception as e:
             st.session_state["meldung_probelauf"] = f"Probelauf fehlgeschlagen: {e}"
@@ -2747,7 +2767,8 @@ with tab_auswertung:
 
 st.divider()
 st.caption(
-    f"Proof of Concept · Modell `{MODEL}` (liest doppelt) · Schiedsrichter `{MODEL_GROSS}` · "
+    f"Proof of Concept · Modell `{MODEL}` (liest doppelt) · Schiedsrichter "
+    + (f"`{MODEL_GROSS}`" if SCHIEDSRICHTER_AN else "abgeschaltet") + " · "
     f"Prompt-Version `{PROMPT_VERSION}`"
 )
 einfuehrung_ausfuehren()  # Autostart-Prüfung bzw. direkt nach Klick auf „Einführung starten“

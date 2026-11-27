@@ -188,3 +188,20 @@ def test_mitarbeiter_wird_doppelt_gelesen(pipeline, monkeypatch):
     erg = pipeline.beleg_lesen([b"BILD"])
     assert erg.schiedsrichter and "Mitarbeiter" in erg.abweichungen and erg.ungeklaert == []
     assert erg.analyse.mitarbeiter == "Max Muster"
+
+
+def test_schiedsrichter_abgeschaltet(pipeline, monkeypatch):
+    """Schalter aus: großes Modell wird nie gefragt, Zweifel gehen als Nachfrage an den Menschen."""
+    aufrufe = ki(pipeline, monkeypatch, SAUBER, ANDERS, gross=SAUBER)
+    erg = pipeline.beleg_lesen([b"BILD"], schiedsrichter=False)
+    assert "gross" not in aufrufe and not erg.schiedsrichter and erg.modell == pipeline.MODEL
+    assert erg.ungeklaert == ["Aussteller"]
+    assert erg.gruende == ["Unsicher gelesen – Aussteller: Aral Tankstelle / Arel Tankstelle"]
+    # nur eine Lesung gelungen -> ohne Gegenprobe zur Nachfrage
+    aufrufe = ki(pipeline, monkeypatch, SAUBER, RuntimeError("Zeitüberschreitung"), gross=SAUBER)
+    erg = pipeline.beleg_lesen([b"BILD"], schiedsrichter=False)
+    assert "gross" not in aufrufe and any(g.startswith("Nur eine Lesung gelungen") for g in erg.gruende)
+    # beide gescheitert -> Fehler wie ohne Schalter
+    ki(pipeline, monkeypatch, RuntimeError("a"), RuntimeError("b"))
+    with pytest.raises(AnalyseFehler):
+        pipeline.beleg_lesen([b"BILD"], schiedsrichter=False)

@@ -277,6 +277,7 @@ Lokal stattdessen eine Zeile je Eintrag in `<art>.jsonl` (Rechte 0700/0600).
   "lesungen": [ {"modell": "qwen/…30b…", "variante": "original", "analyse": { … }, "rohantwort": "…", "fehler": null},
                 {"variante": "kontrast", …}, {"variante": "hochaufgelöst", …} ],
   "rohantwort": "…", "schiedsrichter": true, "kalender": { … },
+  "schiedsrichter_aus": true,     // nur, wenn der Schalter in der Seitenleiste aus war (auch in feedback/)
   "modell": "qwen/qwen3-vl-235b-a22b-instruct", "prompt_version": "2026-11-17.5+k3af32b",
   "dauer_s": 41.2, "benutzer_email": "…",
   "herkunft": "beispielordner"   // nur bei Belegen aus dem Probelauf-Knopf; fehlt = normaler Upload

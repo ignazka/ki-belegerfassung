@@ -49,3 +49,27 @@ def test_mehrere_dateien_als_ein_beleg():
     _analysieren(at, "Beleg analysieren")
     assert [a["dateiname"] for a in A.SPEICHER["analysen"]] == ["rechnung.png, ec.png"]
     assert len(A.SPEICHER["analysen"][0]["beleg_pfade"]) == 2
+
+
+def test_schiedsrichter_abschalten():
+    """Schalter in der Seitenleiste: Analyse ohne großes Modell, vermerkt in Analyse und Prüfung, Filter in der
+    Auswertung."""
+    at = A.app(ki={"dateien": [PNG]})
+    assert A.LESE_AUFRUFE == [] and at.toggle(key="schiedsrichter_an").value
+    at.toggle(key="schiedsrichter_an").set_value(False).run()
+    assert any("Schiedsrichter aus" in c.value for c in at.sidebar.caption)
+    _analysieren(at, "Beleg analysieren")
+    assert A.LESE_AUFRUFE[-1]["schiedsrichter"] is False
+    assert A.SPEICHER["analysen"][-1]["schiedsrichter_aus"] is True
+    # Prüfung übernimmt den Vermerk -> Auswertung kann danach filtern
+    A.radio(at, "Stimmt die Belegart").set_value("ja").run()
+    A.knopf(at, "Prüfung speichern").click().run()
+    A.keine_fehler(at)
+    assert A.SPEICHER["feedback"][-1]["schiedsrichter_aus"] is True
+    filter_ = next(m for m in at.multiselect if m.label == "Schiedsrichter")
+    assert filter_.options == ["abgeschaltet"]
+
+
+def test_schiedsrichter_an_wird_nicht_vermerkt():
+    _analysieren(A.app(ki={"dateien": [PNG]}), "Beleg analysieren")
+    assert A.LESE_AUFRUFE[-1]["schiedsrichter"] is True and "schiedsrichter_aus" not in A.SPEICHER["analysen"][-1]

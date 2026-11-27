@@ -7,6 +7,8 @@
 3. Sonst liest MODEL_GROSS. Dessen Ergebnis gilt. Ein Feld, in dem die beiden ersten Lesungen
    abwichen, gilt als geklärt, wenn das große Modell einer der beiden Lesungen zustimmt.
    Ungeklärte Felder + alle übrigen Prüfgründe -> Nachfrage.
+   Schiedsrichter abgeschaltet (Schalter in der Seitenleiste, zum Testen): statt Schritt 3 gilt Lesung 1,
+   abweichende Felder und alle Prüfgründe gehen als Nachfrage an den Menschen.
 """
 
 from concurrent.futures import ThreadPoolExecutor
@@ -55,9 +57,15 @@ def _lesen(bilder, modell, variante, system=SYSTEM_PROMPT) -> Lesung:
         return Lesung(modell, variante, None, None, {}, f"Modell-Aufruf fehlgeschlagen: {e}")
 
 
-def beleg_lesen(bilder: list[bytes], dateien=None, status=None, system: str = SYSTEM_PROMPT) -> LeseErgebnis:
+def _unsicher(f: str, lesungen: list[Lesung]) -> str:
+    return f"Unsicher gelesen – {f}: " + " / ".join(anzeige_wert(f, l.analyse) for l in lesungen if l.analyse is not None)
+
+
+def beleg_lesen(bilder: list[bytes], dateien=None, status=None, system: str = SYSTEM_PROMPT,
+                schiedsrichter: bool = True) -> LeseErgebnis:
     """bilder: normal aufbereitete Seiten. dateien: Originale (name, bytes, mime) für die hochaufgelöste
-    Schiedsrichter-Lesung (ohne dateien liest er die normalen Bilder). status: Funktion(text) für Fortschritt."""
+    Schiedsrichter-Lesung (ohne dateien liest er die normalen Bilder). status: Funktion(text) für Fortschritt.
+    schiedsrichter=False: großes Modell nie fragen (Testbetrieb) – Zweifel gehen direkt an den Menschen."""
     melden = status or (lambda _text: None)
 
     melden("Lese den Beleg doppelt …")
@@ -82,6 +90,17 @@ def beleg_lesen(bilder: list[bytes], dateien=None, status=None, system: str = SY
             # z. B. Auslandsbeleg: beide Lesungen stimmen, genaueres Lesen ändert nichts -> kein Schiedsrichter,
             # aber Nachfrage an den Menschen bleibt
             return LeseErgebnis(basis.analyse, basis.raw, MODEL, lesungen, befunde=befunde, gruende=gruende)
+
+    if not schiedsrichter:
+        if basis is None:
+            raise AnalyseFehler(" / ".join(l.fehler or "" for l in lesungen), lesungen[0].raw)
+        befunde = pruefen(basis.analyse)
+        gruende = nachfragen_gruende(basis.analyse, befunde)
+        if len(gueltig) < 2:
+            gruende.append("Nur eine Lesung gelungen, Schiedsrichter abgeschaltet – ohne Gegenprobe, bitte die "
+                           "Werte prüfen.")
+        gruende += [_unsicher(f, lesungen) for f in diff]
+        return LeseErgebnis(basis.analyse, basis.raw, MODEL, lesungen, diff, list(diff), False, befunde, gruende)
 
     # Zweifel -> großes Modell
     melden("Lesungen weichen ab oder Prüfung offen – großes Modell schaut nach …")
@@ -113,9 +132,5 @@ def beleg_lesen(bilder: list[bytes], dateien=None, status=None, system: str = SY
     gruende = nachfragen_gruende(gross, befunde)
     if basis is None:  # beide kleinen Lesungen fehlgeschlagen -> niemand hat gegengelesen
         gruende.append("Nur das große Modell konnte den Beleg lesen – ohne Gegenprobe, bitte die Werte prüfen.")
-    for f in ungeklaert:
-        gruende.append(
-            f"Unsicher gelesen – {f}: "
-            + " / ".join(anzeige_wert(f, l.analyse) for l in lesungen if l.analyse is not None)
-        )
+    gruende += [_unsicher(f, lesungen) for f in ungeklaert]
     return LeseErgebnis(gross, l3.raw, MODEL_GROSS, lesungen, diff, ungeklaert, True, befunde, gruende)

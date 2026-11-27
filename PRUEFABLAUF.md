@@ -166,6 +166,14 @@ nichts liefern und nur der Schiedsrichter liest, fehlt die Gegenprobe – dann g
 | Jetzt (Cloud, OpenRouter) | `qwen3-vl-235b-a22b` |
 | Später lokal (RTX 3090, 24 GB) | dasselbe 30B-Modell in höherer Auflösung (`SCHIEDSRICHTER_MODELL` setzen); das 235B-Modell passt nicht in 24 GB, und auf einer Karte ist immer nur ein Modell geladen |
 
+### Schiedsrichter abschalten (zum Testen)
+
+Schalter **„Schiedsrichter (großes Modell)“** in der Seitenleiste – gilt nur für die eigene Sitzung (nach dem
+Neuladen wieder an). Aus: Es gilt Lesung 1; abweichende Felder werden „Unsicher gelesen“, alle übrigen Gründe
+bleiben – jeder Zweifel geht direkt zur Nachfrage. Gilt auch für Probelauf und „Beispielbelege ablegen“. Analyse
+und Prüfung vermerken `schiedsrichter_aus: true`; die Auswertung filtert danach („Schiedsrichter: an /
+abgeschaltet“) und zeigt so, was er bringt.
+
 ## 7. Wann ein Beleg zur Nachfrage geht
 
 Datei: `checks.py` (`nachfragen_gruende`)

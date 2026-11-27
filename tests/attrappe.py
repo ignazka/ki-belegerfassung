@@ -19,6 +19,7 @@ ARTEN = ("analysen", "nachfragen", "feedback", "entscheidungen", "kategorien", "
 SPEICHER: dict[str, list[dict]] = {art: [] for art in ARTEN}
 KI: dict = {}  # analyse (dict), gruende (list) für beleg_lesen; text_antwort (dict) für text_anfrage_json
 ANFRAGEN: list[str] = []  # Nachrichten an text_anfrage_json
+LESE_AUFRUFE: list[dict] = []  # Schlüsselwort-Argumente jedes beleg_lesen-Aufrufs (z. B. schiedsrichter)
 LADEN: dict[str, int] = {}  # wie oft jede Ablage gelesen wurde (für Tests zur Effizienz)
 PAPIERKORB: list[tuple[str, list[str]]] = []  # Aufrufe von beleg_in_papierkorb: (sha, Originaldateien)
 # Kalender-Verbindung: "verbindung" (dict wie storage.kalender_verbindung), "liste" (Kalender des Kontos),
@@ -126,7 +127,8 @@ def einsetzen() -> None:
     storage.kalender_abgleichen = lambda a: Abgleich(status="nicht_eingerichtet")
     _kalender_einsetzen(storage)
 
-    def beleg_lesen(*_a, **_k):
+    def beleg_lesen(*_a, **k):
+        LESE_AUFRUFE.append(k)
         return pipeline.LeseErgebnis(BelegAnalyse.model_validate(KI.get("analyse") or analyse()), "{}",
                                      "test-modell", [], gruende=list(KI.get("gruende") or []))
 
@@ -226,6 +228,7 @@ def app(ki: dict | None = None, kalender: dict | None = None, abfrage: dict | No
     KI.clear()
     KI.update(ki or {})
     ANFRAGEN.clear()
+    LESE_AUFRUFE.clear()
     LADEN.clear()
     PAPIERKORB.clear()
     KALENDER.clear()
