@@ -86,6 +86,7 @@ FEEDBACK_FELDER = [
     ("belegnummer", "Belegnummer", "text"),
     ("restaurant_name", "Restaurant / Aussteller", "text"),
     ("adresse", "Adresse", "text"),
+    ("mitarbeiter", "Mitarbeiter / Gast", "text"),
     ("datum", "Datum (TT.MM.JJJJ)", "datum"),
     ("uhrzeit", "Uhrzeit (HH:MM)", "text"),
     ("netto", "Netto (€)", "betrag"),
@@ -326,6 +327,7 @@ class BelegAnalyse(BaseModel):
     belegnummer: str | None = None
     restaurant_name: str | None = None
     adresse: str | None = None
+    mitarbeiter: str | None = None       # Person, für die der Beleg ausgestellt ist (Gast, Reisender) – nie geraten
     datum: str | None = None
     uhrzeit: str | None = None
     netto: float | None = None
@@ -369,8 +371,8 @@ class BelegAnalyse(BaseModel):
     def _konto(cls, v):
         return parse_konto(v)
 
-    @field_validator("belegnummer", "restaurant_name", "adresse", "uhrzeit", "kategorie_grund", "konto_grund",
-                     mode="before")
+    @field_validator("belegnummer", "restaurant_name", "adresse", "mitarbeiter", "uhrzeit", "kategorie_grund",
+                     "konto_grund", mode="before")
     @classmethod
     def _text(cls, v):
         return parse_text(v)
@@ -525,6 +527,7 @@ class BelegAnalyse(BaseModel):
                 "Belegnummer": self.belegnummer,
                 "Aussteller": self.restaurant_name,
                 "Adresse": self.adresse,
+                "Mitarbeiter / Gast": self.mitarbeiter,
                 "Datum": self.datum,
                 "Netto": self.netto,
                 "MwSt.": self.mwst,
@@ -543,4 +546,5 @@ class BelegAnalyse(BaseModel):
             "EC-/Kartenbetrag": self.ec_betrag,
             "Trinkgeld": self.trinkgeld,
             "Gesamtbetrag inkl. Trinkgeld": self.gesamtbetrag(),
+            **({"Mitarbeiter / Gast": self.mitarbeiter} if self.mitarbeiter else {}),
         }

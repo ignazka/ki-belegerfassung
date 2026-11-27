@@ -40,7 +40,8 @@ def test_kontrast_und_schiedsrichter():
     assert erg["felder"]["belegnummer"]["kontrast"] == [1, 1]
     assert erg["nur_kontrast"] == 1 and erg["schiedsrichter"]["eingesetzt"] == 1
     assert erg["schiedsrichter"]["gerettet"] == 0  # eine der ersten lag ja richtig
-    assert erg["gruppen"]["Textfelder"]["original"] == [2, 3]  # Name + Adresse(leer=leer) richtig, Nummer falsch
+    # Name, Adresse und Mitarbeiter (leer=leer) richtig, Nummer falsch
+    assert erg["gruppen"]["Textfelder"]["original"] == [3, 4]
     assert "PDF" in erg["je_typ"] and "mehrseitig" in erg["je_typ"]
 
 

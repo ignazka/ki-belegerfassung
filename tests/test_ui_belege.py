@@ -213,3 +213,18 @@ def test_beleg_in_den_papierkorb():
     at.selectbox(key="beleg_wahl").set_value("tank").run()
     A.knopf(at, "Ja, in den Papierkorb").click().run()
     assert A.PAPIERKORB[-1] == ("tank", ["belege/tank.png"])
+
+
+def test_mitarbeiter_im_pruefformular():
+    """Neues Lesefeld „Mitarbeiter / Gast“: vorbelegt mit der KI-Lesung, Korrektur wird gespeichert."""
+    at = A.app(analysen=[A.analyse_eintrag("hotel", kategorie="uebernachtung", mitarbeiter="M. Muster",
+                                           gruende=["Pflichtangaben laut Kategorie fehlen: Reiseanlass"])])
+    A.radio(at, "Stimmt die Belegart").set_value("ja").run()
+    feld = A.feld(at, "Mitarbeiter / Gast")
+    assert feld.value == "M. Muster"
+    feld.set_value("Max Muster")
+    A.feld(at, "Begründung").set_value("Vorname ausgeschrieben")
+    A.knopf(at, "Korrigieren").click().run()
+    A.keine_fehler(at)
+    assert A.SPEICHER["feedback"][-1]["felder"]["mitarbeiter"] == {"modell": "M. Muster", "korrekt": "Max Muster",
+                                                                   "richtig": False}

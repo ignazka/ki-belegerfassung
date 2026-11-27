@@ -27,7 +27,7 @@ KALENDER: dict = {}
 KALENDER_AUFRUFE: list[tuple] = []
 _uhr = itertools.count()
 
-FELD_KEYS = ["belegnummer", "restaurant_name", "adresse", "datum", "uhrzeit", "netto", "mwst", "brutto",
+FELD_KEYS = ["belegnummer", "restaurant_name", "adresse", "mitarbeiter", "datum", "uhrzeit", "netto", "mwst", "brutto",
              "ec_betrag", "trinkgeld", "steuersaetze"]
 
 

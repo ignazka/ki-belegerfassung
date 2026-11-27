@@ -82,7 +82,8 @@ lange Vorgänge genauso bauen. Zusätzlich zeigt ein orangefarbener Ladebalken o
 **Bekannte Aussteller** (`merkmale.py`, Feld `bekannte_merkmale` der Kategorie, Tabelle im Kategorien-Tab):
 von Hand + automatisch aus Prüfungen (≥ 2×, eindeutige Belegart); Abgleich im Code (`checks._aussteller_abgleich`),
 bestätigt → „Belegart unsicher“ entfällt, Widerspruch → Nachfrage. Nicht im Prompt. Später weitere `art`en
-(Mitarbeiter braucht erst ein Lesefeld).
+(Lesefeld `mitarbeiter` gibt es seit Prompt-Version 2026-11-27.1; das kleine Modell lässt den Namen bisher oft leer –
+erst Daten sammeln, dann ggf. Schiedsrichter gezielt dazuholen).
 
 Weitere Bausteine: doppeltes Lesen + Schiedsrichter-Modell (`pipeline.py`), Rechnen nur im Code mit
 Decimal/Cent (`beleg_schema.py`), Rechenprüfungen und Nachfrage-Regeln (`checks.py`), Abgleich mit dem

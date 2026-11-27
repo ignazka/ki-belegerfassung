@@ -203,6 +203,7 @@ def vergleichswerte(a: BelegAnalyse) -> dict[str, str]:
         "Konto": a.konto or "",  # weicht nur ab, wenn die Kategorie Konto-Ausnahmen hat
         "Belegnummer": _text_norm(a.belegnummer),
         "Aussteller": _text_norm(a.restaurant_name),
+        "Mitarbeiter": _text_norm(a.mitarbeiter),  # Pflicht bei Übernachtung, oft handschriftlich
         "Datum": a.datum or "",
         "Uhrzeit": _uhrzeit_norm(a.uhrzeit),  # wichtig für Kalenderabgleich und EC-Beleg
         "PLZ": _plz(a.adresse),               # Stadt zählt beim Kalenderabgleich
@@ -216,8 +217,8 @@ def vergleichswerte(a: BelegAnalyse) -> dict[str, str]:
 
 
 def _gleich(feld: str, x: str, y: str) -> bool:
-    if feld == "Aussteller" and x and y:
-        return x in y or y in x  # "Aral Tankstelle" vs. "Aral" ist kein Lesefehler
+    if feld in ("Aussteller", "Mitarbeiter") and x and y:
+        return x in y or y in x  # "Aral Tankstelle" vs. "Aral", "Max Muster" vs. "Herr Max Muster": kein Lesefehler
     return x == y
 
 
@@ -229,6 +230,7 @@ def abweichungen(a: BelegAnalyse, b: BelegAnalyse) -> dict[str, tuple[str, str]]
 
 def anzeige_wert(feld: str, a: BelegAnalyse) -> str:
     """Wert eines Vergleichsfelds lesbar (nicht normalisiert) für Meldungen."""
-    roh = {"Belegnummer": a.belegnummer, "Aussteller": a.restaurant_name, "Datum": datum_de(a.datum),
+    roh = {"Belegnummer": a.belegnummer, "Aussteller": a.restaurant_name, "Mitarbeiter": a.mitarbeiter,
+           "Datum": datum_de(a.datum),
            "Uhrzeit": a.uhrzeit, "PLZ": a.adresse}
     return (roh.get(feld) if feld in roh else vergleichswerte(a)[feld]) or "–"

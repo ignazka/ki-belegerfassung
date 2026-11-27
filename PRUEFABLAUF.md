@@ -50,6 +50,8 @@ voneinander unabhängiger. Ein „3“ statt „8“ passiert dann selten zweima
 
 - Belegart (Bewirtung, Tankbeleg, Übernachtung, Sonstiges, Unlesbar) und ob sie dabei unsicher ist
 - Belegnummer, Aussteller, Adresse, Datum, Uhrzeit
+- Mitarbeiter / Gast: Person, für die der Beleg ausgestellt ist (Gast, Reisender, Person im Empfängerfeld) –
+  nicht Bedienung, Kassierer oder Personen des Ausstellers; nie geraten
 - **Gesamtbetrag der Rechnung** (`brutto`): die Zeile „Summe“, „Total“, „Gesamtbetrag“, **vor** einem
   Trinkgeld. Überträge und Zwischensummen sind ausdrücklich ausgeschlossen.
 - **EC-/Kartenbetrag** (`ec_betrag`): der tatsächlich gezahlte Betrag
@@ -129,7 +131,7 @@ Alles über dieser Toleranz gilt als Ablesefehler. Die Toleranzen stehen an eine
 
 Datei: `checks.py` (`abweichungen`)
 
-Verglichen werden: Belegart, Konto, Belegnummer, Aussteller, Datum, Uhrzeit, Postleitzahl, Gesamtbetrag,
+Verglichen werden: Belegart, Konto, Belegnummer, Aussteller, Mitarbeiter, Datum, Uhrzeit, Postleitzahl, Gesamtbetrag,
 EC-Betrag und die MwSt.-Aufstellung. Groß-/Kleinschreibung, Leer- und Satzzeichen zählen nicht. Beim Namen gilt
 „Aral“ = „ARAL Tankstelle Speyer“ (der eine Name ist im anderen enthalten). Bei der Uhrzeit zählen nur
 Stunde und Minute („18.30“ = „18:30:12“); liest nur eine Lesung eine Uhrzeit, ist das eine Abweichung. Von
@@ -232,7 +234,7 @@ Entscheidungen der ersten Version (`entscheidungen/`).
 *Geprüft – alles richtig* · *Geprüft – korrigiert* · *Erledigt (ohne Bewertung)* (alte Entscheidung ohne
 Feldprüfung).
 
-**Suche** (ganz oben): Suchfeld über Dateiname, Belegnummer, Aussteller, Adresse, Belegart, Datum und Kommentar
+**Suche** (ganz oben): Suchfeld über Dateiname, Belegnummer, Aussteller, Adresse, Mitarbeiter, Belegart, Datum und Kommentar
 (mehrere Wörter: alle müssen vorkommen), Auswahl der Belegart und Zeitraum nach Belegdatum. Bei geprüften
 Belegen zählen die korrigierten Werte. „Filter zurücksetzen“ leert alles.
 

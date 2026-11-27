@@ -16,7 +16,7 @@ VARIANTEN = {  # Name in pipeline.py -> Anzeige
     "hochaufgelöst": "Schiedsrichter",
 }
 GRUPPEN = {  # Feldart -> Felder
-    "Textfelder": ["belegnummer", "restaurant_name", "adresse"],
+    "Textfelder": ["belegnummer", "restaurant_name", "adresse", "mitarbeiter"],
     "Beträge und Steuersätze": ["netto", "mwst", "brutto", "ec_betrag", "trinkgeld", "steuersaetze"],
     "Datum und Uhrzeit": ["datum", "uhrzeit"],
 }

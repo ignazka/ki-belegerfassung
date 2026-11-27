@@ -177,3 +177,14 @@ def test_modellaufruf_wiederholt_nur_bei_abgelehnter_anfrage(monkeypatch):
             with pytest.raises(openai.APITimeoutError):
                 extraction._modell_aufrufen("x", "m")
         assert len(aufrufe) == erwartet
+
+
+def test_mitarbeiter_wird_doppelt_gelesen(pipeline, monkeypatch):
+    """Mitarbeiter/Gast ist Vergleichsfeld: „Herr Max Muster“ vs. „Max Muster“ ist gleich, ein anderer Name nicht."""
+    ki(pipeline, monkeypatch, {**SAUBER, "mitarbeiter": "Herr Max Muster"}, {**SAUBER, "mitarbeiter": "Max Muster"})
+    assert not pipeline.beleg_lesen([b"BILD"]).schiedsrichter
+    ki(pipeline, monkeypatch, {**SAUBER, "mitarbeiter": "Max Muster"}, {**SAUBER, "mitarbeiter": "Erika Beispiel"},
+       gross={**SAUBER, "mitarbeiter": "Max Muster"})
+    erg = pipeline.beleg_lesen([b"BILD"])
+    assert erg.schiedsrichter and "Mitarbeiter" in erg.abweichungen and erg.ungeklaert == []
+    assert erg.analyse.mitarbeiter == "Max Muster"

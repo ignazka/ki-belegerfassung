@@ -1458,7 +1458,7 @@ _QUELLE_ALT = "Feedback direkt nach der Analyse (frühere Version)"
 
 # --- Suche und Filter im Tab „Belege“ -------------------------------------------------------------
 
-_SUCH_FELDER = ("belegnummer", "restaurant_name", "adresse")  # + Dateiname, Kommentar, Belegart, Datum
+_SUCH_FELDER = ("belegnummer", "restaurant_name", "adresse", "mitarbeiter")  # + Dateiname, Kommentar, Belegart, Datum
 
 
 def _beleg_werte(b: dict) -> dict:
@@ -1495,7 +1495,7 @@ def _belege_suchen(belege: list[dict]) -> list[dict]:
     suche = spalte_suche.text_input(
         "Suchen", key="belege_suche", icon=":material/search:",
         placeholder="Name, Ort, Beleg-Nr., Aussteller, Datei … (Enter)",
-        help="Durchsucht Dateiname, Belegnummer, Aussteller, Adresse, Belegart, Datum und Kommentar. Mehrere "
+        help="Durchsucht Dateiname, Belegnummer, Aussteller, Adresse, Mitarbeiter, Belegart, Datum und Kommentar. Mehrere "
              "Wörter: alle müssen vorkommen. Bei geprüften Belegen zählen die korrigierten Werte.")
     arten = spalte_art.multiselect("Belegart", vorhandene, key="belege_arten", format_func=_kategorie_label,
                                    placeholder="Alle Belegarten")

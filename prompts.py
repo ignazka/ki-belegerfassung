@@ -7,7 +7,7 @@ Bei JEDER inhaltlichen Änderung an diesem Text PROMPT_VERSION erhöhen. Das Kat
 
 from beleg_schema import STANDARD_KATEGORIEN
 
-PROMPT_VERSION = "2026-11-21.1"
+PROMPT_VERSION = "2026-11-27.1"
 
 _STANDARD_TEXT = "\n".join(f'- "{key}": {label}' for key, label in STANDARD_KATEGORIEN.items())
 
@@ -62,6 +62,11 @@ SCHRITT 2 – PRÜFUNGEN
 SCHRITT 3 – ABLESEN (Werte genau so übernehmen, wie sie gedruckt sind)
 - belegnummer: Rechnungs-/Belegnummer
 - restaurant_name: Name des Ausstellers (Restaurant, Tankstelle, Hotel, Firma); adresse
+- mitarbeiter: Name der Person, für die der Beleg ausgestellt ist – Gast auf der Hotelrechnung, Reisender auf
+  der Fahrkarte, Person im Empfängerfeld (auch unter dem Firmennamen, z. B. "Firma GmbH / Vorname Nachname"),
+  Name auf einem internen Bewirtungsformular. Mehrere Personen durch "; " trennen. NICHT: Bedienung/Kassierer
+  ("Es bediente Sie"), Personen des Ausstellers (Vorstand, Geschäftsführer), Firmennamen, Karteninhaber auf
+  dem EC-Beleg. Steht kein Name drauf: null. Nie raten.
 - datum (YYYY-MM-DD), uhrzeit (HH:MM)
 - brutto: der GESAMTBETRAG DER RECHNUNG, wie er gedruckt ist – die Zeile "Gesamtbetrag", "Total", "Summe",
   "Zu zahlen", meist fett oder in größter Schrift. NICHT den Betrag vom EC-Beleg. Nichts dazurechnen.
@@ -105,6 +110,7 @@ Antworte AUSSCHLIESSLICH mit einem JSON-Objekt, ohne Markdown, ohne Erklärtext.
   "belegnummer": "R-2026-0815",
   "restaurant_name": "Gasthaus Zur Linde",
   "adresse": "Hauptstraße 1, 12345 Musterstadt",
+  "mitarbeiter": null,
   "datum": "2026-11-14",
   "uhrzeit": "13:42",
   "brutto": <Gesamtbetrag der Rechnung>,
